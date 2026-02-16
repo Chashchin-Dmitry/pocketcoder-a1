@@ -1,0 +1,96 @@
+{
+  "raw_thoughts": [],
+  "tasks": [
+    {
+      "id": "task_001",
+      "title": "Мониторинг контекста в Session Loop",
+      "description": "Парсить /tokens, определять процент, авто-checkpoint при 70%",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "2.1",
+      "success_criteria": "Запустить 5 сессий, checkpoint создаётся при 70%"
+    },
+    {
+      "id": "task_002",
+      "title": "Git integration",
+      "description": "Авто-ветка, атомарные коммиты, проверка git status перед commit",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "2.2",
+      "success_criteria": "pca start создаёт ветку и коммиты"
+    },
+    {
+      "id": "task_003",
+      "title": "Улучшить Checkpoint",
+      "description": "Сохранять diff, историю решений, восстановление при crash",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "2.3",
+      "success_criteria": "Ctrl+C - всё сохраняется корректно"
+    },
+    {
+      "id": "task_004",
+      "title": "Claude API Provider",
+      "description": "anthropic SDK, streaming, token counting, error handling",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "3.1",
+      "success_criteria": "pca start --provider claude-api работает"
+    },
+    {
+      "id": "task_005",
+      "title": "Ollama Provider",
+      "description": "Локальные модели, model selection, context size",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "3.2",
+      "success_criteria": "pca start --provider ollama работает"
+    },
+    {
+      "id": "task_006",
+      "title": "Smart Model Router",
+      "description": "Классификация задач, выбор модели, presets",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "4.1",
+      "success_criteria": "Router выбирает модель по типу задачи"
+    },
+    {
+      "id": "task_007",
+      "title": "Transform: мысли -> задачи",
+      "description": "LLM превращает raw_thoughts в структурированные задачи",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "4.2",
+      "success_criteria": "pca transform работает"
+    },
+    {
+      "id": "task_008",
+      "title": "Unit Tests",
+      "description": "Тесты для checkpoint, tasks, validator, loop",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "5.1",
+      "success_criteria": "pytest coverage > 80%"
+    },
+    {
+      "id": "task_009",
+      "title": "Research: XML + Context Window",
+      "description": "Как XML влияет на контекст, оптимальные форматы",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "research",
+      "success_criteria": "Документ с результатами"
+    },
+    {
+      "id": "task_010",
+      "title": "Max Tokens Library",
+      "description": "Open source библиотека для определения max_tokens",
+      "status": "pending",
+      "created_at": "2026-02-16T15:00:00",
+      "phase": "4.3",
+      "success_criteria": "Работает как отдельный pip пакет"
+    }
+  ],
+  "next_id": 11
+}
