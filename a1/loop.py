@@ -138,58 +138,132 @@ class SessionLoop:
 
         return None, None
 
+    # Checks that BLOCK completion (must fix)
+    BLOCKING_CHECKS = {"syntax", "tests"}
+    # Checks that WARN but don't block (nice to fix)
+    WARNING_CHECKS = {"lint", "build", "git"}
+    # Max retries before giving up
+    MAX_VERIFY_RETRIES = 3
+
+    def _capture_baseline(self):
+        """Capture validation state BEFORE first session.
+
+        Baseline = pre-existing issues that aren't agent's fault.
+        Only NEW issues (not in baseline) count as failures.
+        """
+        print("  [BASELINE] Capturing initial validation state...")
+        self._baseline = {}
+        val_results = self.validator.run_all()
+        for name, report in val_results.items():
+            self._baseline[name] = {
+                "result": report.result.value,
+                "message": report.message,
+            }
+        baseline_str = ", ".join(f"{k}={v['result']}" for k, v in self._baseline.items())
+        print(f"  [BASELINE] Captured: {baseline_str}")
+
+    def _is_new_issue(self, check_name: str, report) -> bool:
+        """Check if this failure is NEW (not in baseline)."""
+        if not hasattr(self, "_baseline") or not self._baseline:
+            return True  # No baseline = everything is new
+        baseline = self._baseline.get(check_name, {})
+        # If baseline already had this check failing, it's pre-existing
+        if baseline.get("result") == "fail":
+            return False
+        return True
+
     def _verify_session(self) -> dict:
         """Post-session verification — don't trust agent, verify.
 
-        Returns: {"passed": bool, "issues": [], "summary": str}
-        """
-        issues = []
+        Three tiers:
+        - BLOCKING (syntax, tests): must pass → retry if fail
+        - WARNING (lint, build, git): log but don't block
+        - INFO (files_exist, criteria): check and report
 
-        # 1. Run validator (syntax, tests, lint, build, git)
+        Anti-infinite-loop: max 3 retries, baseline comparison.
+
+        Returns: {"passed": bool, "blocking_issues": [], "warnings": [],
+                  "retry_count": int, "summary": str}
+        """
+        blocking_issues = []
+        warnings = []
+
+        # 1. Run validator
         print("  [VERIFY] Running validation checks...")
         val_results = self.validator.run_all()
-        for name, report in val_results.items():
-            if report.result.value == "fail":
-                issues.append(f"{name}: {report.message}")
-                if report.details:
-                    issues.append(f"  {report.details[:200]}")
 
-        # 2. Check that tasks marked "done" are legit
-        done_tasks = self.tasks.get_tasks(status="done")
+        for name, report in val_results.items():
+            if report.result.value != "fail":
+                continue
+            # Skip pre-existing issues (baseline)
+            if not self._is_new_issue(name, report):
+                warnings.append(f"{name}: {report.message} (pre-existing, skipped)")
+                continue
+
+            if name in self.BLOCKING_CHECKS:
+                blocking_issues.append(f"{name}: {report.message}")
+                if report.details:
+                    blocking_issues.append(f"  {report.details[:200]}")
+            else:
+                warnings.append(f"{name}: {report.message}")
+
+        # 2. Check files_modified exist (BLOCKING)
         checkpoint = self.checkpoint.load()
         files_modified = checkpoint.get("files_modified", [])
-
-        # 2a. Files from checkpoint actually exist?
         if files_modified:
             files_report = self.validator.check_files_exist(files_modified)
             if files_report.result.value == "fail":
-                issues.append(f"files: {files_report.message}")
+                blocking_issues.append(f"files: {files_report.message}")
 
-        # 2b. Success criteria met?
+        # 3. Success criteria (BLOCKING)
+        done_tasks = self.tasks.get_tasks(status="done")
         for task in done_tasks:
             if task.success_criteria:
                 criteria_report = self.validator.check_criteria(task.success_criteria)
                 if criteria_report.result.value == "fail":
-                    issues.append(f"{task.id} criteria: {criteria_report.message}")
+                    blocking_issues.append(f"{task.id} criteria: {criteria_report.message}")
 
-        # 3. All tasks done? (if checkpoint says COMPLETED)
+        # 4. All tasks done? (BLOCKING if checkpoint says COMPLETED)
         if checkpoint.get("status") == "COMPLETED":
             done, total = self.tasks.get_progress()
             if done < total:
-                issues.append(f"tasks: Only {done}/{total} done but checkpoint says COMPLETED")
+                blocking_issues.append(f"tasks: Only {done}/{total} done but checkpoint says COMPLETED")
 
-        # Build result
-        passed = len(issues) == 0
+        # 5. Retry counter
+        last_ver = checkpoint.get("last_verification", {})
+        prev_retry = last_ver.get("retry_count", 0) if not last_ver.get("passed", True) else 0
+        retry_count = prev_retry + 1 if blocking_issues else 0
+
+        # 6. Anti-infinite-loop: max retries exceeded?
+        force_accept = False
+        if blocking_issues and retry_count >= self.MAX_VERIFY_RETRIES:
+            force_accept = True
+            warnings.append(
+                f"MAX RETRIES ({self.MAX_VERIFY_RETRIES}) reached — accepting with issues"
+            )
+
+        passed = len(blocking_issues) == 0 or force_accept
+
+        # Build summary
         summary_lines = []
-        if passed:
+        if passed and not force_accept:
             summary_lines.append("[VERIFY] All checks PASSED")
             for name, report in val_results.items():
                 icon = "OK" if report.result.value == "ok" else "SKIP"
                 summary_lines.append(f"  [{icon}] {name}: {report.message}")
+        elif force_accept:
+            summary_lines.append(f"[VERIFY] FORCE ACCEPTED after {retry_count} retries")
+            for issue in blocking_issues:
+                summary_lines.append(f"  [!] {issue}")
         else:
-            summary_lines.append(f"[VERIFY] FAILED — {len(issues)} issues:")
-            for issue in issues:
-                summary_lines.append(f"  - {issue}")
+            summary_lines.append(f"[VERIFY] FAILED (attempt {retry_count}/{self.MAX_VERIFY_RETRIES})")
+            for issue in blocking_issues:
+                summary_lines.append(f"  [BLOCK] {issue}")
+
+        if warnings:
+            summary_lines.append("  Warnings:")
+            for w in warnings[:5]:
+                summary_lines.append(f"    [WARN] {w}")
 
         summary = "\n".join(summary_lines)
         print(summary)
@@ -197,15 +271,19 @@ class SessionLoop:
         # Log callback for dashboard
         if self._log_callback:
             try:
-                status = "text" if passed else "bash"
-                self._log_callback(
-                    f"[Verification] {'PASSED' if passed else 'FAILED: ' + '; '.join(issues[:3])}",
-                    status,
-                )
+                log_msg = f"[Verification] {'PASSED' if passed else f'FAILED ({retry_count}/{self.MAX_VERIFY_RETRIES}): ' + '; '.join(blocking_issues[:2])}"
+                self._log_callback(log_msg, "text" if passed else "bash")
             except Exception:
                 pass
 
-        return {"passed": passed, "issues": issues, "summary": summary}
+        return {
+            "passed": passed,
+            "force_accepted": force_accept,
+            "blocking_issues": blocking_issues,
+            "warnings": warnings,
+            "retry_count": retry_count,
+            "summary": summary,
+        }
 
     def _read_queue_messages(self) -> str:
         """Read unread messages from queue.json and mark them as read"""
@@ -235,18 +313,29 @@ class SessionLoop:
         """Build verification failure info for prompt"""
         if not self._last_verification or self._last_verification.get("passed", True):
             return ""
-        issues = self._last_verification.get("issues", [])
-        if not issues:
+        blocking = self._last_verification.get("blocking_issues", [])
+        warnings = self._last_verification.get("warnings", [])
+        retry = self._last_verification.get("retry_count", 0)
+        if not blocking and not warnings:
             return ""
         lines = [
-            "## ⚠ VERIFICATION FAILED (previous session)",
-            "The system ran automated checks and found these issues:",
+            f"## VERIFICATION FAILED (attempt {retry}/{self.MAX_VERIFY_RETRIES})",
+            "The system ran automated checks after your last session.",
+            "",
         ]
-        for issue in issues[:10]:
-            lines.append(f"- {issue}")
-        lines.append("")
-        lines.append("FIX THESE ISSUES before marking any task as done.")
-        lines.append("Do NOT set checkpoint status to COMPLETED until all checks pass.")
+        if blocking:
+            lines.append("BLOCKING ISSUES (must fix):")
+            for issue in blocking[:10]:
+                lines.append(f"- {issue}")
+            lines.append("")
+        if warnings:
+            lines.append("Warnings (non-blocking):")
+            for w in warnings[:5]:
+                lines.append(f"- {w}")
+            lines.append("")
+        lines.append("FIX THE BLOCKING ISSUES before marking any task as done.")
+        if retry >= self.MAX_VERIFY_RETRIES - 1:
+            lines.append(f"WARNING: This is attempt {retry + 1} of {self.MAX_VERIFY_RETRIES}. If issues persist, the system will force-accept.")
         lines.append("")
         return "\n".join(lines)
 
@@ -449,6 +538,9 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         print("=" * 60)
         print()
 
+        # Capture baseline BEFORE first session (pre-existing issues)
+        self._capture_baseline()
+
         while self._running and session_count < self.max_sessions:
             session_count += 1
             is_first = session_count == 1 and self.checkpoint.get_session_number() == 0
@@ -478,24 +570,30 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             # Проверяем статус (only trust COMPLETED if verification passed)
             if self.checkpoint.is_completed():
                 if verification["passed"]:
+                    label = "FORCE ACCEPTED" if verification.get("force_accepted") else "VERIFIED"
                     print()
                     print("=" * 60)
-                    print("[OK] ALL TASKS COMPLETED + VERIFIED!")
+                    print(f"[OK] ALL TASKS COMPLETED + {label}!")
                     print("=" * 60)
                     done, total = self.tasks.get_progress()
                     print(f"Tasks: {done}/{total}")
                     print(f"Sessions: {session_count}")
+                    if verification.get("force_accepted"):
+                        print(f"  (accepted with issues after {verification['retry_count']} retries)")
                     break
                 else:
-                    # Agent says COMPLETED but verification failed
+                    # Agent says COMPLETED but verification failed — retry
+                    retry = verification["retry_count"]
                     print()
-                    print("[!] Agent marked COMPLETED but verification FAILED")
+                    print(f"[!] Agent marked COMPLETED but verification FAILED (attempt {retry}/{self.MAX_VERIFY_RETRIES})")
                     print("    Resetting to WORKING — will retry in next session")
                     cp_data = self.checkpoint.load()
                     cp_data["status"] = "WORKING"
                     cp_data["last_verification"] = {
                         "passed": False,
-                        "issues": verification["issues"],
+                        "blocking_issues": verification["blocking_issues"],
+                        "warnings": verification["warnings"],
+                        "retry_count": retry,
                         "session": cp_data.get("session", 0),
                     }
                     self.checkpoint.save(cp_data)

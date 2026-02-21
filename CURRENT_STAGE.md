@@ -1,7 +1,7 @@
 # CURRENT STAGE — PocketCoder-A1
 
-**Last updated**: 2026-02-21 19:10
-**Status**: Phase 1 DONE, Dashboard Upgrade (6 features) DONE, Stream-JSON fix DONE, E2E #2 PASSED
+**Last updated**: 2026-02-21 21:30
+**Status**: Phase 1 DONE, Dashboard (6 features) DONE, Stream-JSON DONE, Post-Session Verification DONE
 
 ---
 
@@ -66,7 +66,7 @@
 
 ---
 
-## BUGS FIXED (8 total, from Phase 1)
+## BUGS FIXED (11 total)
 
 | # | File | Bug | Fix | Status |
 |---|------|-----|-----|--------|
@@ -78,6 +78,9 @@
 | 6 | loop.py | signal.signal() in thread | Check `threading.current_thread()` | FIXED |
 | 7 | loop.py | Prompt missing file format | Added HOW TO UPDATE sections | FIXED |
 | 8 | dashboard.py | XSS + stop button | `html.escape()` + `loop.stop()` | FIXED |
+| 9 | loop.py | stream-json needs --verbose | Added `--verbose` flag | FIXED |
+| 10 | loop.py | Parser wrong event format | tool_use in assistant content[] | FIXED |
+| 11 | loop.py | f-string nested quotes | Extracted to variable | FIXED |
 
 ---
 
@@ -161,11 +164,11 @@
 |------|--------|-------------|
 | `a1/__init__.py` | OK | — |
 | `a1/checkpoint.py` | OK | decisions[-20:] fix |
-| `a1/tasks.py` | UPDATED | priority field, reorder_tasks(), sort |
-| `a1/validator.py` | OK | — |
-| `a1/loop.py` | UPDATED | _log_callback, _read_queue_messages, priority prompt |
+| `a1/tasks.py` | UPDATED | priority, reorder, success_criteria in summary |
+| `a1/validator.py` | MAJOR UPDATE | has_git, check_git, check_files_exist, check_criteria |
+| `a1/loop.py` | MAJOR UPDATE | stream-json, verification, baseline, anti-loop |
 | `a1/cli.py` | OK | pca test command |
-| `a1/dashboard.py` | MAJOR UPDATE | 7 new endpoints, live logs, DnD, transform, queue msg |
+| `a1/dashboard.py` | MAJOR UPDATE | 7 endpoints, live logs, DnD, transform, queue msg |
 | `a1/tester/` | OK | 7/7 scenarios |
 
 ---
@@ -409,7 +412,7 @@ with sync_playwright() as p:
 
 ---
 
-## BUGS FIXED (9 total)
+## BUGS FIXED (11 total)
 
 | # | File | Bug | Fix | Status |
 |---|------|-----|-----|--------|
@@ -422,12 +425,14 @@ with sync_playwright() as p:
 | 7 | loop.py | Prompt missing file format | Added HOW TO UPDATE sections | FIXED |
 | 8 | dashboard.py | XSS + stop button | `html.escape()` + `loop.stop()` | FIXED |
 | 9 | loop.py | stream-json needs --verbose | Added `--verbose` flag | FIXED |
+| 10 | loop.py | Parser: wrong event format | tool_use in assistant content[], not content_block_start | FIXED |
+| 11 | loop.py | f-string nested quotes | Extracted to variable before f-string | FIXED |
 
 ---
 
 ## CURRENT WORK — ШАГИ ЧТО МЫ ДЕЛАЕМ СЕЙЧАС
 
-### Этап: Stream-JSON для живых логов — DONE
+### Этап 1: Stream-JSON для живых логов — DONE
 
 ```
 ШАГ 1: Проблема ── LIVE LOGS NOT STREAMING
@@ -440,22 +445,52 @@ with sync_playwright() as p:
 
 ШАГ 3: Реализация (3 файла)
   a1/loop.py:
-    ├── Добавлен --verbose --output-format stream-json в subprocess args
-    ├── Новый метод _parse_stream_event() — парсит NDJSON строки
-    ├── Маппинг: tool_use name → тип (Read→read, Edit→edit, Bash→bash)
-    ├── readline() loop вместо for line in proc.stdout (буферизация)
-    └── _log_callback(display_text, event_type) — передаёт тип
+    ├── --verbose --output-format stream-json в subprocess args
+    ├── _parse_stream_event() — парсит NDJSON
+    ├── _classify_tool() — маппинг tool name → icon type
+    ├── readline() loop с bufsize=1
+    └── _log_callback(display_text, event_type)
 
   a1/dashboard.py:
-    ├── _on_agent_line(line, event_type=None) — принимает тип от парсера
-    └── Если event_type есть — используем его, иначе _classify_line()
+    └── _on_agent_line(line, event_type=None) — pre-classified type
+```
 
-ШАГ 4: E2E тест #3 — нашёл баг #9
-  cause: --output-format stream-json требует --verbose с -p
-  error: "When using --print, --output-format=stream-json requires --verbose"
-  fix: добавлен --verbose в subprocess args
+### Этап 2: Post-Session Verification — DONE
 
-ШАГ 5: Фикс + документация + commit + push ── ТЕКУЩИЙ ЭТАП
+```
+ШАГ 1: Анализ проблемы ── "агент врёт"
+  cause: loop.py верит checkpoint.json blindly
+  effect: агент может написать "COMPLETED" без реальной проверки
+  validator.py существует но НИКОГДА не вызывается из loop
+
+ШАГ 2: Решение ── три уровня проверки
+  BLOCKING: syntax + tests + files_exist + success_criteria
+  WARNING: lint + build + git (опционально)
+  ANTI-LOOP: baseline + max 3 retries + force_accept
+
+ШАГ 3: Реализация (3 файла)
+  a1/loop.py:
+    ├── _capture_baseline() — снимок ДО первой сессии
+    ├── _is_new_issue() — сравнение с baseline
+    ├── _verify_session() → dict с passed/blocking/warnings/retry
+    ├── _get_verification_prompt() → текст для следующей сессии
+    ├── start() — вставлена baseline + verify + retry логика
+    └── Константы: BLOCKING_CHECKS, WARNING_CHECKS, MAX_VERIFY_RETRIES=3
+
+  a1/validator.py:
+    ├── has_git() — проверка наличия .git
+    ├── _check_git() — diff + status (None если нет git)
+    ├── check_files_exist(paths) — файлы на диске
+    ├── check_criteria(criteria) — эвристика по success_criteria
+    └── run_all() — добавлен опциональный git check
+
+  a1/tasks.py:
+    └── get_summary() — показывает SUCCESS CRITERIA для pending/in_progress
+
+ШАГ 4: Анти-бесконечный-цикл
+  cause: что если агент не может починить тесты?
+  effect: без защиты loop будет крутиться вечно
+  fix: MAX_VERIFY_RETRIES=3, baseline (пропуск старых проблем), force_accept
 ```
 
 ### Claude CLI subprocess — финальная команда:
@@ -470,12 +505,159 @@ with sync_playwright() as p:
 
 ---
 
+## POST-SESSION VERIFICATION SYSTEM (2026-02-21)
+
+### Problem — "Не верим на слово"
+
+```
+BEFORE (weak — agent trusted blindly):
+  Agent subprocess completes
+    └── loop reads checkpoint.json
+        └── status == "COMPLETED"? → trusts it → stops
+            └── No check that anything was actually done
+            └── No validator called
+            └── success_criteria field existed but NEVER checked
+            └── Agent could write "done" and lie
+
+GAPS:
+  ✗ Validator exists but never called from loop
+  ✗ success_criteria in tasks.py — never verified
+  ✗ files_modified in checkpoint — never checked if files exist
+  ✗ Git diff — never used for verification
+  ✗ No retry mechanism if verification fails
+  ✗ No protection against infinite verification loops
+```
+
+### Solution — Three-tier verification gate
+
+```
+AFTER (robust — verify everything):
+  Agent subprocess completes
+    └── loop calls _verify_session()
+        │
+        ├── TIER 1: BLOCKING checks (must pass to accept "COMPLETED")
+        │   ├── syntax: python -m py_compile on all .py files
+        │   ├── tests: pytest -v
+        │   ├── files_modified: do files from checkpoint.json actually exist on disk?
+        │   ├── success_criteria: for each "done" task, verify criteria
+        │   │   ├── "tests pass" → run pytest
+        │   │   ├── "lint clean" → run ruff
+        │   │   ├── "file X exists" → os.path.exists
+        │   │   └── anything else → SKIP (can't verify programmatically)
+        │   └── tasks: if checkpoint says COMPLETED, are ALL tasks really done?
+        │
+        ├── TIER 2: WARNING checks (log but don't block)
+        │   ├── lint: ruff check
+        │   ├── build: python -m build / npm run build
+        │   └── git: diff --stat + status --porcelain (optional, works without git)
+        │
+        └── TIER 3: Anti-infinite-loop protection
+            ├── Baseline: captured BEFORE first session (pre-existing issues don't count)
+            ├── MAX_VERIFY_RETRIES = 3
+            ├── retry_count tracked in checkpoint.last_verification
+            └── After 3 failed retries → FORCE ACCEPT with warnings
+                │
+                ├── ALL PASS → trust "COMPLETED" → stop ✓
+                │
+                ├── BLOCKING FAIL (attempt < 3) → DON'T trust
+                │   ├── checkpoint.status = "WORKING" (reset)
+                │   ├── checkpoint.last_verification = {issues, retry_count}
+                │   └── next session prompt includes:
+                │       "VERIFICATION FAILED: [issues]. Fix before marking done."
+                │       + retry count warning on last attempt
+                │
+                └── BLOCKING FAIL (attempt >= 3) → FORCE ACCEPT
+                    └── Log warnings, stop loop, don't loop forever
+```
+
+### Files changed
+
+| File | What changed | Why |
+|------|-------------|-----|
+| `a1/loop.py` | `_capture_baseline()`, `_is_new_issue()`, `_verify_session()`, `_get_verification_prompt()` | Core verification logic |
+| `a1/loop.py` | `start()` — inserted baseline + verification + retry flow | Integration into main loop |
+| `a1/loop.py` | Constants: `BLOCKING_CHECKS`, `WARNING_CHECKS`, `MAX_VERIFY_RETRIES` | Configuration |
+| `a1/validator.py` | `has_git()`, `_check_git()`, `check_files_exist()`, `check_criteria()` | New validation methods |
+| `a1/validator.py` | `run_all()` — added optional git check | Git detection (optional) |
+| `a1/tasks.py` | `get_summary()` — shows `SUCCESS CRITERIA:` for non-done tasks | Agent sees criteria in prompt |
+
+### Key design decisions
+
+1. **Git is OPTIONAL**: `has_git()` checks `.git` dir. No git = skip silently. Git adds bonus checks.
+2. **Baseline comparison**: Pre-existing lint issues don't block agent. Only NEW failures count.
+3. **Force accept after 3 retries**: Prevents infinite loop. Logs all issues as warnings.
+4. **BLOCKING vs WARNING**: Only syntax + tests block. Lint + build + git just warn.
+5. **Verification in dashboard**: `_log_callback` sends verification status to live log panel.
+6. **Prompt injection**: Failed verification details appear in next session's prompt so agent knows what to fix.
+
+### Cause-effect chain: Agent lies about completion
+
+```
+Agent writes "COMPLETED" to checkpoint.json
+  └── loop.py calls _verify_session()
+      └── validator.run_all() finds: tests FAIL
+          └── _is_new_issue("tests", report) → True (wasn't failing before)
+              └── blocking_issues = ["tests: Tests failed"]
+                  └── passed = False
+                      └── checkpoint.status reset to "WORKING"
+                          └── next session prompt includes:
+                              "VERIFICATION FAILED (attempt 1/3)
+                               BLOCKING ISSUES: tests: Tests failed
+                               FIX THE BLOCKING ISSUES before marking done."
+                              └── agent fixes tests → marks done again
+                                  └── _verify_session() → tests PASS
+                                      └── passed = True → loop stops ✓
+```
+
+### Cause-effect chain: Infinite loop prevention
+
+```
+Agent can't fix tests (3 attempts)
+  └── attempt 1: _verify_session() → FAIL → retry_count=1 → reset to WORKING
+      └── attempt 2: _verify_session() → FAIL → retry_count=2 → reset to WORKING
+          └── attempt 3: _verify_session() → retry_count=3 >= MAX_VERIFY_RETRIES
+              └── force_accept = True
+                  └── passed = True (forced)
+                      └── loop stops with warning:
+                          "FORCE ACCEPTED after 3 retries"
+                          └── issues logged for human review
+```
+
+### _verify_session() return format
+
+```python
+{
+    "passed": bool,           # True if all blocking checks OK or force_accepted
+    "force_accepted": bool,   # True if MAX_VERIFY_RETRIES reached
+    "blocking_issues": [],    # List of strings: what failed (BLOCKING tier)
+    "warnings": [],           # List of strings: what warned (WARNING tier)
+    "retry_count": int,       # Current retry number (0 = first attempt)
+    "summary": str,           # Human-readable summary for logs
+}
+```
+
+### checkpoint.last_verification format
+
+```json
+{
+    "passed": false,
+    "blocking_issues": ["tests: Tests failed"],
+    "warnings": ["lint: 3 issues"],
+    "retry_count": 2,
+    "session": 3
+}
+```
+
+---
+
 ## WHAT'S NEXT
 
 ### Phase 2: Autonomy Improvements
-- [ ] 2.1 Context monitoring (token usage from stream-json events)
-- [ ] 2.2 Git integration (auto-branch, status check)
-- [ ] 2.3 Checkpoint improvement (diffs, crash recovery)
+- [x] 2.1 Post-session verification ("don't trust agent, verify")
+- [x] 2.2 Git detection (optional — works with and without git)
+- [ ] 2.3 Context monitoring (token usage from stream-json events)
+- [ ] 2.4 Checkpoint improvement (diffs, crash recovery)
+- [ ] 2.5 E2E test of verification system (Task #14)
 
 ---
 

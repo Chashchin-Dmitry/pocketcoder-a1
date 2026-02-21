@@ -142,7 +142,35 @@ pca test --no-vision      # Run all tests
 
 ---
 
-## BUGS FIXED (2026-02-21)
+## POST-SESSION VERIFICATION
+
+After each session, loop.py automatically verifies the agent's work:
+
+```
+Agent says "COMPLETED"
+  └── _verify_session() runs
+      ├── BLOCKING (must pass): syntax, tests, files_modified exist, success_criteria
+      ├── WARNING (log only): lint, build, git status
+      └── Anti-infinite-loop: baseline comparison, max 3 retries, force_accept
+```
+
+**Key methods (a1/loop.py)**:
+- `_capture_baseline()` — snapshot validation state before first session
+- `_is_new_issue()` — only NEW failures count (pre-existing issues skipped)
+- `_verify_session()` — runs all checks, returns `{passed, blocking_issues, warnings, retry_count}`
+- `_get_verification_prompt()` — injects failure details into next session prompt
+
+**Validation methods (a1/validator.py)**:
+- `run_all()` — syntax + tests + lint + build + git (optional)
+- `has_git()` / `_check_git()` — git detection, works without git
+- `check_files_exist(paths)` — verify files on disk
+- `check_criteria(criteria)` — heuristic: "tests pass" → pytest, "file X exists" → os.path.exists
+
+**Constants**: `BLOCKING_CHECKS = {syntax, tests}`, `WARNING_CHECKS = {lint, build, git}`, `MAX_VERIFY_RETRIES = 3`
+
+---
+
+## BUGS FIXED (11, 2026-02-21)
 
 1. **loop.py** — Claude CLI args: `["claude", prompt]` → `["claude", "-p", prompt]`
 2. **loop.py** — Added output capture to session logs
@@ -154,6 +182,7 @@ pca test --no-vision      # Run all tests
 8. **loop.py** — signal.signal() in non-main thread: added threading check
 9. **loop.py** — `--output-format stream-json` requires `--verbose` with `-p`
 10. **loop.py** — Parser: tool_use comes inside assistant content[], not content_block_start
+11. **loop.py** — f-string nested quotes in `_capture_baseline()`: extracted to variable
 
 ---
 
@@ -260,6 +289,12 @@ while True:
 - [x] A1 agent autonomously created 450-line provider.ts (DeepSeek + Ollama)
 - [x] 20 dashboard screenshots documenting full web flow
 - [x] Claude CLI reference docs in CLAUDE.md
+- [x] Stream-JSON live logs (real-time NDJSON parsing, 6 icon types)
+- [x] Post-session verification (3-tier: blocking/warning/anti-loop)
+- [x] Git-optional validation (works with and without git)
+- [x] Success criteria checking (heuristic parser in validator.py)
+- [x] Anti-infinite-loop protection (baseline + max 3 retries + force_accept)
 
 **In Progress:**
+- [ ] E2E test of verification system (Task #14)
 - See TODO.md and .a1/tasks.json
