@@ -1,5 +1,14 @@
 {
-  "raw_thoughts": [],
+  "raw_thoughts": [
+    {
+      "text": "We should add dark mode tests",
+      "added_at": "2026-02-21T11:17:37.400743"
+    },
+    {
+      "text": "E2E thought 1771672687",
+      "added_at": "2026-02-21T11:18:07.499941"
+    }
+  ],
   "tasks": [
     {
       "id": "task_001",
@@ -90,7 +99,40 @@
       "created_at": "2026-02-16T15:00:00",
       "phase": "4.3",
       "success_criteria": "Работает как отдельный pip пакет"
+    },
+    {
+      "id": "task_011",
+      "title": "Test dashboard",
+      "description": "Testing via Playwright",
+      "status": "pending",
+      "created_at": "2026-02-21T11:17:37.248923",
+      "completed_at": null,
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
+    },
+    {
+      "id": "task_012",
+      "title": "Test API endpoints",
+      "description": "",
+      "status": "pending",
+      "created_at": "2026-02-21T11:17:37.325485",
+      "completed_at": null,
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
+    },
+    {
+      "id": "task_013",
+      "title": "E2E test task 1771672685",
+      "description": "",
+      "status": "pending",
+      "created_at": "2026-02-21T11:18:05.650657",
+      "completed_at": null,
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
     }
   ],
-  "next_id": 11
+  "next_id": 14
 }

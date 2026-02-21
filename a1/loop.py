@@ -146,9 +146,15 @@ Continue working.
         log_file = log_dir / f"session_{session_num:03d}.log"
 
         try:
+            # Clean env: remove CLAUDECODE to allow nested sessions
+            import os
+            env = os.environ.copy()
+            env.pop("CLAUDECODE", None)
+
             self._current_process = subprocess.Popen(
-                ["claude", "--print", "-p", prompt],
+                ["claude", "-p", prompt, "--dangerously-skip-permissions", "--no-session-persistence"],
                 cwd=self.project_dir,
+                env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
