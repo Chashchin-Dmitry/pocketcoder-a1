@@ -3,6 +3,7 @@
 PocketCoder-A1 Dashboard — Full-featured Web UI
 """
 
+import html as html_mod
 import json
 import socket
 import threading
@@ -18,7 +19,13 @@ from .tasks import TaskManager
 
 PROJECT_DIR = None
 AGENT_RUNNING = False
+AGENT_LOOP = None  # Reference to SessionLoop for stop control
 ACTIVITY_LOG = []  # Live activity log
+
+
+def esc(text: str) -> str:
+    """Escape HTML to prevent XSS"""
+    return html_mod.escape(str(text)) if text else ""
 
 
 def log_activity(action: str, details: str = "", status: str = "info"):
@@ -745,8 +752,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <div class="task">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
-                    <div class="task-title">{t.title}</div>
-                    <div class="task-meta">{t.id}</div>
+                    <div class="task-title">{esc(t.title)}</div>
+                    <div class="task-meta">{esc(t.id)}</div>
                 </div>
                 {phase_html}
             </div>
@@ -760,9 +767,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for a in reversed(ACTIVITY_LOG[-5:]):
             activity_html += f'''
             <div class="activity-item">
-                <span class="activity-time">{a['time']}</span>
-                <span class="activity-dot {a['status']}"></span>
-                <span class="activity-text">{a['action']} <span class="activity-details">{a['details']}</span></span>
+                <span class="activity-time">{esc(a['time'])}</span>
+                <span class="activity-dot {esc(a['status'])}"></span>
+                <span class="activity-text">{esc(a['action'])} <span class="activity-details">{esc(a['details'])}</span></span>
             </div>
             '''
 
@@ -872,8 +879,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <div class="task">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
-                    <div class="task-title">{t.title}</div>
-                    <div class="task-meta">{t.id} {(' - ' + desc) if desc else ''}</div>
+                    <div class="task-title">{esc(t.title)}</div>
+                    <div class="task-meta">{esc(t.id)} {(' - ' + esc(desc)) if desc else ''}</div>
                 </div>
             </div>
             '''
@@ -885,7 +892,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 <div class="task">
                     <div class="task-check"><i class="bi bi-lightbulb"></i></div>
                     <div class="task-content">
-                        <div class="task-title">{th['text']}</div>
+                        <div class="task-title">{esc(th['text'])}</div>
                         <div class="task-meta">Raw thought</div>
                     </div>
                 </div>
@@ -1001,9 +1008,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for a in reversed(ACTIVITY_LOG):
             activity_html += f'''
             <div class="activity-item">
-                <span class="activity-time">{a['time']}</span>
-                <span class="activity-dot {a['status']}"></span>
-                <span class="activity-text">{a['action']} <span class="activity-details">{a['details']}</span></span>
+                <span class="activity-time">{esc(a['time'])}</span>
+                <span class="activity-dot {esc(a['status'])}"></span>
+                <span class="activity-text">{esc(a['action'])} <span class="activity-details">{esc(a['details'])}</span></span>
             </div>
             '''
 
@@ -1110,26 +1117,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
     def start_agent(self):
-        global AGENT_RUNNING
+        global AGENT_RUNNING, AGENT_LOOP
         if not AGENT_RUNNING:
             log_activity("Agent started", "", "success")
 
             def run():
-                global AGENT_RUNNING
+                global AGENT_RUNNING, AGENT_LOOP
                 AGENT_RUNNING = True
                 try:
                     from .loop import SessionLoop
                     loop = SessionLoop(PROJECT_DIR)
+                    AGENT_LOOP = loop
                     loop.start()
                 finally:
                     AGENT_RUNNING = False
+                    AGENT_LOOP = None
                     log_activity("Agent stopped", "", "warning")
 
             thread = threading.Thread(target=run, daemon=True)
             thread.start()
 
     def stop_agent(self):
-        global AGENT_RUNNING
+        global AGENT_RUNNING, AGENT_LOOP
+        if AGENT_LOOP:
+            AGENT_LOOP.stop()
         AGENT_RUNNING = False
         log_activity("Agent stop requested", "", "warning")
 

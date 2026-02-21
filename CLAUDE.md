@@ -4,10 +4,11 @@
 
 ```
 1. Read CLAUDE.md (this file) — project overview
-2. Read .a1/checkpoint.json — current state
-3. Read .a1/tasks.json — task list
-4. Read TODO.md — detailed phases
-5. Continue work from checkpoint
+2. Read CURRENT_STAGE.md — cause-effect chains, bug status
+3. Read .a1/checkpoint.json — current state
+4. Read .a1/tasks.json — task list
+5. Read TODO.md — detailed phases
+6. Continue work from checkpoint
 ```
 
 ---
@@ -19,6 +20,7 @@
 - Saves state between sessions (checkpoint)
 - Auto-restarts when context fills up
 - Validates its work (tests, lint)
+- **Has autonomous vision-based QA tester** (screenshot → AI → action)
 
 ---
 
@@ -31,18 +33,29 @@ pocketcoder-a1/
 │   ├── checkpoint.py        # State between sessions
 │   ├── tasks.py             # Task management
 │   ├── validator.py         # Validation (tests, lint)
-│   ├── loop.py              # Session loop
-│   ├── dashboard.py         # Web UI
-│   └── cli.py               # CLI commands
+│   ├── loop.py              # Session loop (Claude CLI/API/Ollama)
+│   ├── dashboard.py         # Web UI (full dashboard)
+│   ├── cli.py               # CLI commands
+│   └── tester/              # Vision-based QA agent
+│       ├── __init__.py
+│       ├── runner.py        # Main loop: screenshot → analyze → action
+│       ├── browser.py       # Playwright headless wrapper
+│       ├── analyzer.py      # Claude Vision analysis
+│       ├── scenarios.py     # 7 predefined test scenarios
+│       └── report.py        # HTML/JSON reports with screenshots
 │
 ├── .a1/                     # Data (created on init)
 │   ├── checkpoint.json      # Current state
 │   ├── tasks.json           # Task list
-│   ├── sessions/            # Session history
-│   └── checkpoints/         # Checkpoint archive
+│   ├── sessions/            # Session logs
+│   ├── checkpoints/         # Checkpoint archive
+│   └── test-reports/        # Vision tester reports + screenshots
 │
+├── .mcp.json                # Playwright MCP config
+├── .venv/                   # Python virtual environment
 ├── BACKLOG.md               # Full scope
 ├── TODO.md                  # Detailed phases
+├── CURRENT_STAGE.md         # Current state with cause-effect chains
 ├── CLAUDE.md                # This file
 └── pyproject.toml           # pip install
 ```
@@ -61,6 +74,37 @@ pca status               # Current status
 pca validate             # Run validation
 pca ui                   # Web dashboard
 pca log                  # Session history
+pca test                 # Run vision-based QA tests (all 7 scenarios)
+pca test -s 1            # Run specific scenario
+pca test --web-only      # Web tests only
+pca test --no-vision     # Without AI vision analysis
+```
+
+---
+
+## VISION TESTER
+
+Autonomous QA agent that tests the dashboard visually:
+
+```
+Screenshot → Claude Vision analyzes → Decides action → Executes → Screenshot → ...
+```
+
+### 7 Test Scenarios:
+1. Dashboard loads — page renders, all cards visible
+2. Add task via web — form submit, task appears
+3. Add thought — thought form works
+4. Navigation — all 6 pages load correctly
+5. Theme toggle — dark/light switch
+6. Start/Stop agent — controls work
+7. API endpoint — /api/status returns valid JSON
+
+### How to run:
+```bash
+source .venv/bin/activate
+pca ui --no-browser &     # Start dashboard
+pca test --no-vision      # Run all tests
+# Reports: .a1/test-reports/latest.html
 ```
 
 ---
@@ -98,23 +142,13 @@ pca log                  # Session history
 
 ---
 
-## SUCCESS CRITERIA
+## BUGS FIXED (2026-02-21)
 
-### Per task:
-- [ ] Code written
-- [ ] Syntax OK (py_compile)
-- [ ] Tests pass (pytest)
-- [ ] Lint clean (ruff)
-- [ ] Git commit done
-- [ ] success_criteria from task verified
-
-### Per project:
-- [ ] `pca init` works
-- [ ] `pca task add` works
-- [ ] `pca start` launches agent
-- [ ] Checkpoint saves correctly
-- [ ] Can stop and continue
-- [ ] Web UI works
+1. **loop.py** — Claude CLI args: `["claude", prompt]` → `["claude", "--print", "-p", prompt]`
+2. **loop.py** — Added output capture to session logs
+3. **dashboard.py** — Stop button now connected to `loop.stop()`
+4. **dashboard.py** — XSS fixed with `html.escape()` on all user inputs
+5. **checkpoint.py** — decisions[] limited to last 20 entries
 
 ---
 
@@ -130,16 +164,19 @@ pca log                  # Session history
 
 ## CURRENT STATUS
 
-**Version:** 0.1.0 (MVP)
+**Version:** 0.1.0 (MVP + Vision Tester)
 
 **Done:**
 - [x] Project structure
-- [x] checkpoint.py
+- [x] checkpoint.py (+ decisions limit fix)
 - [x] tasks.py
 - [x] validator.py
-- [x] loop.py (basic)
-- [x] cli.py
-- [x] dashboard.py (Web UI)
+- [x] loop.py (+ Claude CLI fix + output capture)
+- [x] cli.py (+ `pca test` command)
+- [x] dashboard.py (+ XSS fix + stop fix)
+- [x] Vision Tester (7/7 scenarios pass)
+- [x] Playwright MCP integration
+- [x] CURRENT_STAGE.md with cause-effect chains
 
 **In Progress:**
 - See TODO.md and .a1/tasks.json

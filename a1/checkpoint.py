@@ -91,6 +91,7 @@ class CheckpointManager:
             checkpoint["files_modified"] = list(existing)
         if decisions:
             checkpoint["decisions"].extend(decisions)
+            checkpoint["decisions"] = checkpoint["decisions"][-20:]
         if next_steps:
             checkpoint["next_steps"] = next_steps
         if last_action:

@@ -7,6 +7,7 @@ import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from .checkpoint import CheckpointManager
 from .tasks import TaskManager
@@ -33,6 +34,7 @@ class SessionLoop:
         self.validator = Validator(project_dir)
 
         self._running = False
+        self._current_process: Optional[subprocess.Popen] = None
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
@@ -44,6 +46,14 @@ class SessionLoop:
         """Обработать прерывание"""
         print("\n\n[!]  Interrupt received. Saving checkpoint...")
         self._running = False
+        if self._current_process:
+            self._current_process.terminate()
+
+    def stop(self):
+        """Остановить loop извне (из dashboard)"""
+        self._running = False
+        if self._current_process:
+            self._current_process.terminate()
 
     def build_prompt(self, is_first: bool = False) -> str:
         """Build prompt for session (English prompts, respond in user's language)"""
@@ -130,16 +140,39 @@ Continue working.
 
     def _run_claude_max(self, prompt: str) -> int:
         """Запустить Claude Code CLI (Max subscription)"""
+        session_num = self.checkpoint.get_session_number()
+        log_dir = self.project_dir / ".a1" / "sessions"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"session_{session_num:03d}.log"
+
         try:
-            result = subprocess.run(
-                ["claude", prompt],
+            self._current_process = subprocess.Popen(
+                ["claude", "--print", "-p", prompt],
                 cwd=self.project_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
             )
-            return result.returncode
+
+            output_lines = []
+            with open(log_file, "w") as f:
+                for line in self._current_process.stdout:
+                    print(line, end="")
+                    f.write(line)
+                    output_lines.append(line)
+
+            self._current_process.wait()
+            returncode = self._current_process.returncode
+            self._current_process = None
+            return returncode
+
         except FileNotFoundError:
             print("[ERROR] Claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code")
             return 1
         except KeyboardInterrupt:
+            if self._current_process:
+                self._current_process.terminate()
+                self._current_process = None
             return 130
 
     def _run_claude_api(self, prompt: str) -> int:
