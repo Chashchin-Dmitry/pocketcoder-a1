@@ -1420,7 +1420,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 text=True
             )
             if result.returncode == 0:
-                for line in result.stdout.strip().split('\\n'):
+                for line in result.stdout.strip().split('\n'):
                     if line:
                         parts = line.split(' ', 1)
                         hash_short = parts[0]
