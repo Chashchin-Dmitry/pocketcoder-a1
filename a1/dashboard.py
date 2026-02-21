@@ -58,15 +58,17 @@ def _classify_line(line: str) -> str:
     return "text"
 
 
-def _on_agent_line(line: str):
-    """Parse agent output line and add to live buffer"""
+def _on_agent_line(line: str, event_type: str = None):
+    """Parse agent output line and add to live buffer.
+    event_type: pre-classified type from stream-json parser (read/edit/write/bash/thinking/text)
+    If not provided, falls back to heuristic classifier."""
     stripped = line.rstrip("\n")
     if not stripped:
         return
     entry = {
         "time": datetime.now().strftime("%H:%M:%S"),
         "line": stripped,
-        "type": _classify_line(line),
+        "type": event_type if event_type else _classify_line(line),
     }
     AGENT_LOG_BUFFER.append(entry)
     if len(AGENT_LOG_BUFFER) > 500:
@@ -1597,12 +1599,12 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
             env = os.environ.copy()
             env.pop("CLAUDECODE", None)
             result = subprocess.run(
-                ["claude", "-p", prompt, "--max-turns", "1", "--no-session-persistence"],
+                ["claude", "-p", prompt, "--max-turns", "1", "--no-session-persistence", "--dangerously-skip-permissions"],
                 cwd=str(PROJECT_DIR),
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=60,
+                timeout=300,
             )
             output = result.stdout.strip()
             # Try to extract JSON from output
@@ -1613,7 +1615,7 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
                 return {"tasks": tasks}
             return {"tasks": [], "error": "Could not parse AI response"}
         except subprocess.TimeoutExpired:
-            return {"tasks": [], "error": "AI request timed out"}
+            return {"tasks": [], "error": "AI request timed out (5 min)"}
         except FileNotFoundError:
             return {"tasks": [], "error": "Claude CLI not found"}
         except Exception as e:

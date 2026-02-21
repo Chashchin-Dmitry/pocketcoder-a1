@@ -58,6 +58,75 @@ class SessionLoop:
         if self._current_process:
             self._current_process.terminate()
 
+    def _parse_stream_event(self, line: str):
+        """Parse a stream-json NDJSON line into (display_text, event_type)
+
+        Stream-json format: one JSON object per line with fields like:
+        - {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+        - {"type":"content_block_start","content_block":{"type":"tool_use","name":"Read",...}}
+        - {"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}
+        - {"type":"result","result":"..."}
+        """
+        import json as _json
+        stripped = line.strip()
+        if not stripped:
+            return None, None
+        try:
+            event = _json.loads(stripped)
+        except (_json.JSONDecodeError, ValueError):
+            # Not JSON — plain text fallback
+            return stripped, "text"
+
+        etype = event.get("type", "")
+
+        # Tool use events
+        if etype == "content_block_start":
+            cb = event.get("content_block", {})
+            if cb.get("type") == "tool_use":
+                tool_name = cb.get("name", "unknown")
+                tool_input = cb.get("input", {})
+                # Map tool names to our types
+                type_map = {"Read": "read", "Edit": "edit", "Write": "write",
+                            "Bash": "bash", "Glob": "read", "Grep": "read"}
+                ev_type = type_map.get(tool_name, "bash")
+                # Build display text
+                if tool_name in ("Read", "Glob", "Grep"):
+                    target = tool_input.get("file_path") or tool_input.get("pattern") or ""
+                    return f"[{tool_name}] {target}", ev_type
+                elif tool_name in ("Edit", "Write"):
+                    target = tool_input.get("file_path", "")
+                    return f"[{tool_name}] {target}", ev_type
+                elif tool_name == "Bash":
+                    cmd = tool_input.get("command", "")[:80]
+                    return f"[Bash] {cmd}", ev_type
+                return f"[{tool_name}]", ev_type
+
+        # Assistant text
+        if etype == "content_block_delta":
+            delta = event.get("delta", {})
+            if delta.get("type") == "text_delta":
+                text = delta.get("text", "")
+                if text.strip():
+                    return text.strip(), "thinking"
+
+        # Result message
+        if etype == "result":
+            result_text = str(event.get("result", ""))[:200]
+            if result_text.strip():
+                return f"[Result] {result_text}", "text"
+
+        # Message event with content
+        if etype == "assistant":
+            msg = event.get("message", {})
+            content = msg.get("content", [])
+            for block in content:
+                if block.get("type") == "text":
+                    text = block.get("text", "")[:150]
+                    if text.strip():
+                        return text, "text"
+
+        return None, None
+
     def _read_queue_messages(self) -> str:
         """Read unread messages from queue.json and mark them as read"""
         import json
@@ -204,7 +273,12 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             env.pop("CLAUDECODE", None)
 
             self._current_process = subprocess.Popen(
-                ["claude", "-p", prompt, "--dangerously-skip-permissions", "--no-session-persistence", "--max-turns", "25"],
+                ["claude", "-p", prompt,
+                 "--dangerously-skip-permissions",
+                 "--no-session-persistence",
+                 "--max-turns", "25",
+                 "--verbose",
+                 "--output-format", "stream-json"],
                 cwd=self.project_dir,
                 env=env,
                 stdout=subprocess.PIPE,
@@ -219,16 +293,21 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                     line = self._current_process.stdout.readline()
                     if not line and self._current_process.poll() is not None:
                         break
-                    if line:
-                        print(line, end="")
-                        f.write(line)
-                        f.flush()
+                    if not line:
+                        continue
+                    f.write(line)
+                    f.flush()
                     output_lines.append(line)
-                    if self._log_callback:
-                        try:
-                            self._log_callback(line)
-                        except Exception:
-                            pass
+
+                    # Parse stream-json NDJSON events
+                    display_text, event_type = self._parse_stream_event(line)
+                    if display_text:
+                        print(display_text)
+                        if self._log_callback:
+                            try:
+                                self._log_callback(display_text, event_type)
+                            except Exception:
+                                pass
 
             self._current_process.wait()
             returncode = self._current_process.returncode
