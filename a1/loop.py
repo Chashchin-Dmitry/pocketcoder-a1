@@ -38,9 +38,11 @@ class SessionLoop:
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
-        """Настроить обработку Ctrl+C"""
-        signal.signal(signal.SIGINT, self._handle_interrupt)
-        signal.signal(signal.SIGTERM, self._handle_interrupt)
+        """Настроить обработку Ctrl+C (only works in main thread)"""
+        import threading
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, self._handle_interrupt)
+            signal.signal(signal.SIGTERM, self._handle_interrupt)
 
     def _handle_interrupt(self, signum, frame):
         """Обработать прерывание"""
@@ -83,12 +85,19 @@ Working directory: {self.project_dir}
 6. If validation OK → git commit → mark task done → next task
 7. If validation FAIL → fix the issue
 
-## CONTEXT MANAGEMENT
-- Check /tokens every 10-15 minutes
-- When context > 70%:
-  1. Update .a1/checkpoint.json with current state
-  2. Include: completed work, modified files, decisions made, next steps
-  3. Type: exit
+## HOW TO UPDATE TASK STATUS
+When you complete a task, edit .a1/tasks.json:
+- Change "status": "pending" → "in_progress" when starting
+- Change "status": "in_progress" → "done" when finished
+- Add "completed_at": "<ISO datetime>" when done
+
+## HOW TO UPDATE CHECKPOINT
+When done or before stopping, edit .a1/checkpoint.json:
+- Set "current_task" to the task ID you worked on
+- Set "files_modified" to list of files you changed
+- Set "decisions" to list of key decisions made
+- Set "last_action" to description of last thing done
+- Set "status" to "COMPLETED" if ALL tasks are done
 
 ## VALIDATION COMMANDS
 - Syntax: python -m py_compile <file>
@@ -97,6 +106,11 @@ Working directory: {self.project_dir}
 
 ## SUCCESS CRITERIA
 Each task has success_criteria field — verify it before marking done.
+
+## IMPORTANT
+- You have max 25 tool-use turns. Work efficiently.
+- Focus on ONE task at a time.
+- Validate your changes before marking done.
 
 ## START
 Begin with first pending task. Work autonomously.
@@ -117,10 +131,17 @@ Respond in the language of user's request. Code comments in English.
 2. Complete current task or pick next pending
 3. Validate after each change
 4. Verify success_criteria before marking done
-5. If context > 70% → save checkpoint → exit
 
-## CONTEXT CHECK
-Run /tokens to check usage. Save checkpoint before reaching limit.
+## HOW TO UPDATE TASK STATUS
+Edit .a1/tasks.json — change "status" field: "pending" → "in_progress" → "done"
+Add "completed_at" ISO datetime when marking done.
+
+## HOW TO UPDATE CHECKPOINT
+Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_action.
+
+## IMPORTANT
+- You have max 25 tool-use turns. Work efficiently.
+- Focus on ONE task at a time.
 
 Continue working.
 """
@@ -152,7 +173,7 @@ Continue working.
             env.pop("CLAUDECODE", None)
 
             self._current_process = subprocess.Popen(
-                ["claude", "-p", prompt, "--dangerously-skip-permissions", "--no-session-persistence"],
+                ["claude", "-p", prompt, "--dangerously-skip-permissions", "--no-session-persistence", "--max-turns", "25"],
                 cwd=self.project_dir,
                 env=env,
                 stdout=subprocess.PIPE,

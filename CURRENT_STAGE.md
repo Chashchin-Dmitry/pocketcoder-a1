@@ -1,149 +1,156 @@
 # CURRENT STAGE — PocketCoder-A1
 
-**Last updated**: 2026-02-21
-**Status**: Phase 1 DONE, Phase 2 IN PROGRESS, Bugs Fixing
+**Last updated**: 2026-02-21 13:10
+**Status**: Phase 1 DONE + E2E VERIFIED, Phase 2 IN PROGRESS
 
 ---
 
 ## STATE MAP (cause → effect chains)
 
 ```
-[Phase 1: Core MVP] ──DONE──> [Phase 2: Autonomy] ──IN PROGRESS
-       │                              │
-       │                              ├── 2.1 Context monitoring ── NOT STARTED
-       │                              │     WHY BLOCKED: loop.py bug (Claude CLI args)
-       │                              │     CAUSE: subprocess.run(["claude", prompt]) crashes
-       │                              │     EFFECT: sessions never start → no context to monitor
-       │                              │
-       │                              ├── 2.2 Git integration ── NOT STARTED
-       │                              │     WHY BLOCKED: no working sessions yet
-       │                              │     CAUSE: can't test git commits without running agent
-       │                              │
-       │                              └── 2.3 Checkpoint improvement ── NOT STARTED
-       │                                    WHY BLOCKED: no sessions = no checkpoints to improve
+[Phase 1: Core MVP] ──DONE──> [E2E Test] ──PASSED──> [Phase 2: Autonomy] ──IN PROGRESS
+       │                           │                          │
+       │                           │                          ├── 2.1 Context monitoring ── NOT STARTED
+       │                           │                          │     UNBLOCKED: sessions work now
+       │                           │                          │
+       │                           │                          ├── 2.2 Git integration ── PARTIALLY DONE
+       │                           │                          │     Agent does git commits autonomously
+       │                           │                          │     TODO: auto-branch, status check
+       │                           │                          │
+       │                           │                          └── 2.3 Checkpoint improvement ── NOT STARTED
+       │                           │
+       │                           └── E2E Test Results:
+       │                                 - 3/3 tasks completed autonomously
+       │                                 - 4/4 pytest tests pass
+       │                                 - 2 git commits made by agent
+       │                                 - Dashboard shows real-time progress
+       │                                 - 10 screenshots documenting flow
        │
-       ├── checkpoint.py ── DONE but BUG
-       │     BUG: decisions[] grows infinite (no limit)
-       │     EFFECT: prompt gets bloated → context waste
-       │
-       ├── tasks.py ── DONE, working
-       │
-       ├── validator.py ── DONE, working
-       │
-       ├── loop.py ── DONE but 2 CRITICAL BUGS
-       │     BUG 1: Claude CLI args wrong → agent can't start
-       │     BUG 2: output not captured → no logs, blind execution
-       │     EFFECT: entire autonomous loop is broken
-       │
-       ├── cli.py ── DONE, working
-       │
-       └── dashboard.py ── DONE but 2 BUGS
-              BUG 1: Stop button not connected to loop._running
-              BUG 2: XSS — unescaped user input in HTML
-              EFFECT: can't stop agent from web + security hole
+       ├── checkpoint.py ── DONE (all bugs fixed)
+       ├── tasks.py ── DONE
+       ├── validator.py ── DONE
+       ├── loop.py ── DONE (8 bugs fixed total)
+       ├── cli.py ── DONE
+       ├── dashboard.py ── DONE (all bugs fixed)
+       └── tester/ ── DONE (7/7 scenarios)
 ```
 
 ---
 
-## CRITICAL PATH (what blocks what)
+## BUGS FIXED (8 total)
 
-```
-BUG: loop.py Claude CLI args ──────────────────────┐
-  │                                                  │
-  └─> FIX needed BEFORE anything else               │
-       │                                             │
-       v                                             │
-Sessions can start ─────────────────────────────────┤
-  │                                                  │
-  ├─> Context monitoring becomes possible            │
-  ├─> Checkpoints actually get created               │
-  ├─> Git integration can be tested                  │
-  └─> Vision Tester has something to test ──────────┘
-                                                     │
-                                                     v
-                                            AUTONOMOUS TESTING
-                                            (Phase we're building now)
-```
+| # | File | Bug | Fix | Status |
+|---|------|-----|-----|--------|
+| 1 | loop.py | Claude CLI args wrong | `["claude", "-p", prompt]` | FIXED |
+| 2 | loop.py | No output capture | `stdout=subprocess.PIPE` + log to file | FIXED |
+| 3 | loop.py | Nested sessions crash | `env.pop("CLAUDECODE", None)` | FIXED |
+| 4 | loop.py | No auto-permissions | `--dangerously-skip-permissions` | FIXED |
+| 5 | loop.py | No max-turns limit | `--max-turns 25` | FIXED |
+| 6 | loop.py | signal.signal() in thread | Check `threading.current_thread()` | FIXED |
+| 7 | loop.py | Prompt missing file format | Added HOW TO UPDATE sections | FIXED |
+| 8 | dashboard.py | XSS + stop button | `html.escape()` + `loop.stop()` | FIXED |
 
 ---
 
-## BUGS TO FIX (priority order)
+## E2E TEST RESULTS (2026-02-21)
 
-| # | File | Bug | Impact | Blocks |
-|---|------|-----|--------|--------|
-| 1 | `loop.py:134` | Claude CLI: prompt as arg, not `--print -p` | **Agent can't start** | Everything |
-| 2 | `loop.py:131` | No `capture_output` — blind execution | No logs, no debugging | Context monitoring |
-| 3 | `dashboard.py:1131` | Stop sets global flag, not `loop._running` | Can't stop agent from web | Web control |
-| 4 | `dashboard.py:748+` | XSS — raw HTML injection via task titles | Security hole | Production use |
-| 5 | `checkpoint.py:93` | `decisions[]` unlimited growth | Context bloat over time | Long sessions |
+### Test Project: `sandbox/test-e2e/`
+- Simple Python project with `hello.py`
+- 3 tasks added (1 via CLI, 2 via web dashboard)
+
+### Flow:
+```
+1. pca init → .a1/ created
+2. pca ui → Dashboard on :7331
+3. POST /add-task → Task added via web form
+4. POST /start → Agent started from web
+5. Claude subprocess runs autonomously:
+   - Read hello.py
+   - Added goodbye() function
+   - Created test_hello.py (4 tests)
+   - Created README.md
+   - Ran pytest (4/4 pass), ruff (clean)
+   - 2 git commits
+   - Updated tasks.json (all done)
+   - Updated checkpoint.json (COMPLETED)
+6. Dashboard shows real-time: Running → 1/3 → 3/3 → Completed
+7. Agent stops automatically
+```
+
+### Screenshots (10):
+| # | What | Shows |
+|---|------|-------|
+| 01 | Dashboard BEFORE | 0/3 tasks, Stopped |
+| 02 | Tasks BEFORE | 1 pending task |
+| 03 | Tasks after web add | 3 tasks visible |
+| 04 | Dashboard RUNNING | Green "Running", Session #1 |
+| 05 | Dashboard MID-WORK | 1/3 done, task_002 in progress |
+| 06 | Tasks MID-WORK | Icons: done/in_progress/pending |
+| 07 | Dashboard FINAL | 3/3 Completed (blue badge) |
+| 08 | Tasks FINAL | All green checkmarks |
+| 09 | Sessions | Session #1: COMPLETED, 3 files |
+| 10 | Activity Log | Started → Stopped timeline |
+
+### Agent Output (session_001.log):
+- 4 pytest tests passed
+- ruff clean
+- 2 git commits: `bb8942f`, `4d744b8`
+- Smart: recognized task_002 and task_003 as duplicates
+
+### Files Created by Agent:
+- `hello.py` — modified (added goodbye())
+- `test_hello.py` — 4 tests
+- `README.md` — project description
 
 ---
 
-## WHAT'S BEING BUILT NOW
+## WHAT'S NEXT (Phase 2)
 
-### Vision-Based Autonomous Tester (`a1/tester/`)
+### 2.1 Context Monitoring
+- [ ] Parse Claude `--output-format json` for token usage
+- [ ] Auto-checkpoint when approaching limit
+- [ ] `/tokens` doesn't work in `-p` mode — need alternative
 
-```
-PURPOSE: Test A1 the way a human QA would — visually
+### 2.2 Git Integration (partially done)
+- [x] Agent makes git commits autonomously
+- [ ] Auto-create branch before work
+- [ ] Check git status before commit
+- [ ] Don't commit if tests fail
 
-FLOW:
-  Screenshot ──> Claude Vision analyzes ──> Decides action
-      ^                                         │
-      │                                         v
-      └──── Takes screenshot after ◄─── Executes action
-                                        (click/type/navigate)
-
-WHY THIS APPROACH:
-  - A1 is a web dashboard → visual testing catches real UX bugs
-  - Can detect layout breaks, missing elements, wrong states
-  - Autonomous — runs on cron, reports results
-  - Uses Claude Code CLI (Max subscription) for vision analysis
-
-DEPENDS ON:
-  - Playwright (headless Chromium) — INSTALLED
-  - Claude Code CLI — INSTALLED
-  - Bug fixes in loop.py/dashboard.py — IN PROGRESS
-```
-
-### 7 Test Scenarios
-
-| # | Scenario | Tests | Depends on |
-|---|----------|-------|------------|
-| 1 | Dashboard loads | Page renders, cards visible | dashboard.py works |
-| 2 | Add task via web | Form submit, task appears | tasks.py + dashboard |
-| 3 | Add thought | Form submit, thought appears | tasks.py + dashboard |
-| 4 | Navigation | All 6 pages load correctly | dashboard routing |
-| 5 | Theme toggle | Dark/light switch works | JS + CSS |
-| 6 | Start/Stop agent | Status changes correctly | Bug #3 fix |
-| 7 | API endpoint | /api/status returns JSON | dashboard API |
+### 2.3 Checkpoint Improvement
+- [ ] Save file diffs in checkpoint
+- [ ] Crash recovery (Ctrl+C → checkpoint preserved)
+- [ ] Multi-session continuation
 
 ---
 
 ## FILE STATUS
 
-| File | Status | Issues |
-|------|--------|--------|
-| `a1/__init__.py` | OK | - |
-| `a1/checkpoint.py` | BUG | decisions[] unlimited |
-| `a1/tasks.py` | OK | - |
-| `a1/validator.py` | OK | - |
-| `a1/loop.py` | 2 BUGS | Claude CLI args + no output capture |
-| `a1/cli.py` | OK | needs `pca test` command |
-| `a1/dashboard.py` | 2 BUGS | stop disconnect + XSS |
-| `a1/tester/` | NEW | being created now |
-| `pyproject.toml` | OK | needs test deps |
-| `.mcp.json` | NEW | Playwright MCP config |
+| File | Status | Last Change |
+|------|--------|-------------|
+| `a1/__init__.py` | OK | — |
+| `a1/checkpoint.py` | OK | decisions[-20:] fix |
+| `a1/tasks.py` | OK | — |
+| `a1/validator.py` | OK | — |
+| `a1/loop.py` | OK | 8 fixes: signal, max-turns, prompt format |
+| `a1/cli.py` | OK | pca test command |
+| `a1/dashboard.py` | OK | XSS + stop fixes |
+| `a1/tester/` | OK | 7/7 scenarios |
 
 ---
 
-## NEXT ACTIONS (in order)
+## DASHBOARD API
 
-1. [x] Clone repo to `/home/telebot/projects/pocketcoder-a1/`
-2. [x] Create CURRENT_STAGE.md (this file)
-3. [ ] Set up Playwright MCP (`.mcp.json`)
-4. [ ] Fix 5 bugs (loop.py, dashboard.py, checkpoint.py)
-5. [ ] Build `a1/tester/` module (6 files)
-6. [ ] Add `pca test` CLI command
-7. [ ] Update README.md, CLAUDE.md, TODO.md
-8. [ ] Git commit all changes
-9. [ ] Run `pca test` — verify 7/7 scenarios pass
+| Method | Endpoint | What it does |
+|--------|----------|-------------|
+| GET | `/` | Main dashboard page |
+| GET | `/tasks` | Tasks page |
+| GET | `/sessions` | Sessions page |
+| GET | `/log` | Activity log |
+| GET | `/settings` | Settings page |
+| GET | `/commits` | Git commits page |
+| GET | `/api/status` | JSON status (checkpoint + tasks + progress + running) |
+| POST | `/add-task` | Add task (form: task=...) |
+| POST | `/add-thought` | Add thought (form: thought=...) |
+| POST | `/start` | Start agent |
+| POST | `/stop` | Stop agent |
