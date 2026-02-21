@@ -58,14 +58,33 @@ class SessionLoop:
         if self._current_process:
             self._current_process.terminate()
 
+    def _classify_tool(self, tool_name: str, tool_input: dict):
+        """Classify a tool_use block into (display_text, event_type)"""
+        type_map = {"Read": "read", "Edit": "edit", "Write": "write",
+                    "Bash": "bash", "Glob": "read", "Grep": "read"}
+        ev_type = type_map.get(tool_name, "bash")
+        if tool_name in ("Read", "Glob", "Grep"):
+            target = tool_input.get("file_path") or tool_input.get("pattern") or ""
+            return f"[{tool_name}] {target}", ev_type
+        elif tool_name in ("Edit", "Write"):
+            target = tool_input.get("file_path", "")
+            return f"[{tool_name}] {target}", ev_type
+        elif tool_name == "Bash":
+            cmd = tool_input.get("command", "")[:80]
+            return f"[Bash] {cmd}", ev_type
+        return f"[{tool_name}]", ev_type
+
     def _parse_stream_event(self, line: str):
         """Parse a stream-json NDJSON line into (display_text, event_type)
 
-        Stream-json format: one JSON object per line with fields like:
-        - {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
-        - {"type":"content_block_start","content_block":{"type":"tool_use","name":"Read",...}}
-        - {"type":"content_block_delta","delta":{"type":"text_delta","text":"..."}}
+        With -p --verbose --output-format stream-json, Claude CLI outputs:
+        - {"type":"system","subtype":"init",...}
+        - {"type":"assistant","message":{"content":[{"type":"text",...}]}}
+        - {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read",...}]}}
+        - {"type":"assistant","message":{"content":[{"type":"thinking",...}]}}
+        - {"type":"user","message":{"content":[{"type":"tool_result",...}]}} (skip)
         - {"type":"result","result":"..."}
+        - {"type":"rate_limit_event",...} (skip)
         """
         import json as _json
         stripped = line.strip()
@@ -74,56 +93,47 @@ class SessionLoop:
         try:
             event = _json.loads(stripped)
         except (_json.JSONDecodeError, ValueError):
-            # Not JSON — plain text fallback
             return stripped, "text"
 
         etype = event.get("type", "")
 
-        # Tool use events
-        if etype == "content_block_start":
-            cb = event.get("content_block", {})
-            if cb.get("type") == "tool_use":
-                tool_name = cb.get("name", "unknown")
-                tool_input = cb.get("input", {})
-                # Map tool names to our types
-                type_map = {"Read": "read", "Edit": "edit", "Write": "write",
-                            "Bash": "bash", "Glob": "read", "Grep": "read"}
-                ev_type = type_map.get(tool_name, "bash")
-                # Build display text
-                if tool_name in ("Read", "Glob", "Grep"):
-                    target = tool_input.get("file_path") or tool_input.get("pattern") or ""
-                    return f"[{tool_name}] {target}", ev_type
-                elif tool_name in ("Edit", "Write"):
-                    target = tool_input.get("file_path", "")
-                    return f"[{tool_name}] {target}", ev_type
-                elif tool_name == "Bash":
-                    cmd = tool_input.get("command", "")[:80]
-                    return f"[Bash] {cmd}", ev_type
-                return f"[{tool_name}]", ev_type
-
-        # Assistant text
-        if etype == "content_block_delta":
-            delta = event.get("delta", {})
-            if delta.get("type") == "text_delta":
-                text = delta.get("text", "")
-                if text.strip():
-                    return text.strip(), "thinking"
+        # Skip non-useful events
+        if etype in ("system", "user", "rate_limit_event"):
+            return None, None
 
         # Result message
         if etype == "result":
             result_text = str(event.get("result", ""))[:200]
             if result_text.strip():
                 return f"[Result] {result_text}", "text"
+            return None, None
 
-        # Message event with content
+        # Assistant message — contains text, tool_use, or thinking blocks
         if etype == "assistant":
             msg = event.get("message", {})
             content = msg.get("content", [])
             for block in content:
-                if block.get("type") == "text":
+                btype = block.get("type", "")
+
+                # Tool use — Read, Edit, Write, Bash, etc.
+                if btype == "tool_use":
+                    tool_name = block.get("name", "unknown")
+                    tool_input = block.get("input", {})
+                    return self._classify_tool(tool_name, tool_input)
+
+                # Text output
+                if btype == "text":
                     text = block.get("text", "")[:150]
                     if text.strip():
-                        return text, "text"
+                        return text.strip(), "text"
+
+                # Thinking (extended thinking)
+                if btype == "thinking":
+                    thinking = block.get("thinking", "")[:100]
+                    if thinking.strip():
+                        return thinking.strip(), "thinking"
+
+            return None, None
 
         return None, None
 
