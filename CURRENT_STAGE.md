@@ -241,10 +241,10 @@
 - [x] Commits page (fixed split bug)
 - [x] Activity Log timeline
 
-### What DOESN'T WORK (known):
-- [ ] **Live logs during agent work** — logs appear only AFTER agent finishes
-- [ ] **Icon classification** — sees summary text, not tool calls (all "text" icons)
-- [ ] **Transform timeout** — 60s not enough for Claude CLI (needs 90-120s)
+### What WAS BROKEN (now fixed):
+- [x] **Live logs during agent work** — FIXED: `--verbose --output-format stream-json`
+- [x] **Icon classification** — FIXED: parser reads tool_use from assistant content blocks
+- [x] **Transform timeout** — FIXED: 120s → 300s
 
 ---
 
@@ -477,6 +477,31 @@ with sync_playwright() as p:
 - [ ] 2.2 Git integration (auto-branch, status check)
 - [ ] 2.3 Checkpoint improvement (diffs, crash recovery)
 
-### Optional:
-- [ ] Transform: longer timeout + better error messages
-- [ ] E2E test #4: verify stream-json produces real-time logs with correct icons
+---
+
+## E2E TEST #3 RESULTS (2026-02-21, stream-json verification)
+
+### Test Project: `sandbox/epotos-templates/`
+- Same project, 1 task: "Create PROVIDERS.md"
+- Purpose: verify stream-json produces real-time logs with correct icon types
+
+### Results:
+```
+PASSED — 23 log entries, 6 icon types, 21 screenshots
+
+Icon Distribution:
+  text     : 7 entries  (bi-text-paragraph)
+  read     : 5 entries  (bi-book)
+  bash     : 5 entries  (bi-terminal)
+  thinking : 3 entries  (bi-chat-dots)
+  edit     : 2 entries  (bi-pencil)
+  write    : 1 entries  (bi-file-earmark-plus)
+
+Agent completed 1/1 task in 60 seconds, 1 session
+```
+
+### Bugs found and fixed during test:
+1. Bug #9: `--output-format stream-json` requires `--verbose` with `-p`
+2. Bug #10: Parser looked for `content_block_start` events, but actual format wraps tool_use in `assistant` messages
+
+### Screenshots: `sandbox/epotos-templates/screenshots/e2e3/` (21 files)

@@ -151,12 +151,15 @@ pca test --no-vision      # Run all tests
 5. **dashboard.py** — Stop button now connected to `loop.stop()`
 6. **dashboard.py** — XSS fixed with `html.escape()` on all user inputs
 7. **checkpoint.py** — decisions[] limited to last 20 entries
+8. **loop.py** — signal.signal() in non-main thread: added threading check
+9. **loop.py** — `--output-format stream-json` requires `--verbose` with `-p`
+10. **loop.py** — Parser: tool_use comes inside assistant content[], not content_block_start
 
 ---
 
 ## CLAUDE CLI REFERENCE (for subprocess calls)
 
-### Correct way to call claude from Python:
+### Correct way to call claude from Python (with stream-json):
 ```python
 import os, subprocess
 
@@ -170,17 +173,28 @@ proc = subprocess.Popen(
         "-p", prompt,                       # Non-interactive mode (REQUIRED)
         "--dangerously-skip-permissions",    # Auto-approve file writes
         "--no-session-persistence",          # Don't save session to disk
+        "--max-turns", "25",                 # Limit agentic turns
+        "--verbose",                         # REQUIRED for stream-json with -p
+        "--output-format", "stream-json",    # Real-time NDJSON streaming
     ],
     cwd=str(project_dir),
     env=env,                                # Clean env without CLAUDECODE
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
+    bufsize=1,                              # Line-buffered for real-time
 )
 
-# Read output line by line
-for line in proc.stdout:
-    print(line, end="")
+# Read output line by line (NDJSON — one JSON object per line)
+while True:
+    line = proc.stdout.readline()
+    if not line and proc.poll() is not None:
+        break
+    if line:
+        event = json.loads(line)
+        # event["type"] is: "system", "assistant", "user", "result", "rate_limit_event"
+        # assistant content blocks: "text", "tool_use", "thinking"
+        print(line, end="")
 ```
 
 ### Key flags:
@@ -189,9 +203,22 @@ for line in proc.stdout:
 | `-p "prompt"` | Non-interactive mode (print and exit) |
 | `--dangerously-skip-permissions` | Auto-approve all tool calls |
 | `--no-session-persistence` | Don't clutter session history |
-| `--output-format json` | Structured JSON output |
-| `--max-turns 5` | Limit agentic turns |
+| `--verbose` | Required for stream-json with -p |
+| `--output-format stream-json` | Real-time NDJSON streaming (each event = 1 line) |
+| `--output-format json` | Single JSON result (no streaming) |
+| `--max-turns 25` | Limit agentic turns |
 | `--allowedTools "Bash,Read,Edit"` | Only allow specific tools |
+
+### Stream-JSON event format:
+```
+{"type":"system","subtype":"init",...}                          — skip
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{...}}]}} — tool call
+{"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}  — text output
+{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"..."}]}} — thinking
+{"type":"user","message":{"content":[{"type":"tool_result",...}]}}  — skip
+{"type":"result","result":"..."}                                — final result
+{"type":"rate_limit_event",...}                                  — skip
+```
 
 ### Critical: CLAUDECODE env var
 - Claude Code sets `CLAUDECODE=1` in its shell environment
