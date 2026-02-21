@@ -30,15 +30,23 @@ class Validator:
     def __init__(self, project_dir: Path):
         self.project_dir = Path(project_dir)
 
+    def has_git(self) -> bool:
+        """Check if project has git initialized"""
+        return (self.project_dir / ".git").exists()
+
     def run_all(self) -> Dict[str, ValidationReport]:
         """Запустить все проверки"""
         results = {}
 
-        # Определяем тип проекта и запускаем соответствующие проверки
         results["syntax"] = self._check_syntax()
         results["tests"] = self._run_tests()
         results["lint"] = self._run_lint()
         results["build"] = self._check_build()
+
+        # Git checks (optional — works without git)
+        git_report = self._check_git()
+        if git_report:
+            results["git"] = git_report
 
         return results
 
@@ -218,6 +226,103 @@ class Validator:
         return ValidationReport(
             result=ValidationResult.SKIP,
             message="No build config found",
+        )
+
+    def _check_git(self) -> Optional[ValidationReport]:
+        """Check git status if git is available. Returns None if no git."""
+        if not self.has_git():
+            return None
+
+        # Check for changes
+        code, stdout, stderr = self._run_command(["git", "diff", "--stat"])
+        staged_code, staged_out, _ = self._run_command(["git", "diff", "--cached", "--stat"])
+        has_changes = bool(stdout.strip()) or bool(staged_out.strip())
+
+        # Check for untracked files
+        code, stdout, stderr = self._run_command(["git", "status", "--porcelain"])
+        lines = [l for l in stdout.strip().split("\n") if l.strip()]
+        untracked = [l for l in lines if l.startswith("??")]
+
+        msg = f"Changes: {'yes' if has_changes else 'none'}, untracked: {len(untracked)}"
+        return ValidationReport(
+            result=ValidationResult.OK,
+            message=msg,
+            command="git status",
+        )
+
+    def check_files_exist(self, file_paths: List[str]) -> ValidationReport:
+        """Check that specified files actually exist on disk"""
+        if not file_paths:
+            return ValidationReport(
+                result=ValidationResult.SKIP,
+                message="No files to check",
+            )
+
+        missing = []
+        for fp in file_paths:
+            full = self.project_dir / fp
+            if not full.exists():
+                missing.append(fp)
+
+        if missing:
+            return ValidationReport(
+                result=ValidationResult.FAIL,
+                message=f"{len(missing)} files missing: {', '.join(missing[:5])}",
+            )
+
+        return ValidationReport(
+            result=ValidationResult.OK,
+            message=f"All {len(file_paths)} files exist",
+        )
+
+    def check_criteria(self, criteria: str) -> ValidationReport:
+        """Check success_criteria using heuristics.
+
+        Recognizes patterns:
+        - "tests pass" / "pytest" → run pytest
+        - "file X exists" → check file
+        - "lint clean" / "no lint" → run linter
+        - anything else → SKIP (can't verify programmatically)
+        """
+        cl = criteria.lower()
+
+        # Tests pass?
+        if ("test" in cl and "pass" in cl) or "pytest" in cl:
+            report = self._run_tests()
+            return ValidationReport(
+                result=report.result,
+                message=f"Criteria '{criteria}': {report.message}",
+                details=report.details,
+                command=report.command,
+            )
+
+        # Lint clean?
+        if "lint" in cl and ("clean" in cl or "pass" in cl or "no " in cl):
+            report = self._run_lint()
+            return ValidationReport(
+                result=report.result,
+                message=f"Criteria '{criteria}': {report.message}",
+                details=report.details,
+                command=report.command,
+            )
+
+        # File exists? (pattern: "file X exists" or "X.ext exists")
+        import re
+        file_match = re.search(r"['\"]?(\S+\.\w{1,5})['\"]?\s+exist", cl)
+        if not file_match:
+            file_match = re.search(r"exist\w*\s+['\"]?(\S+\.\w{1,5})['\"]?", cl)
+        if file_match:
+            fname = file_match.group(1)
+            exists = (self.project_dir / fname).exists()
+            return ValidationReport(
+                result=ValidationResult.OK if exists else ValidationResult.FAIL,
+                message=f"Criteria '{criteria}': file {'found' if exists else 'NOT found'}",
+            )
+
+        # Can't verify programmatically
+        return ValidationReport(
+            result=ValidationResult.SKIP,
+            message=f"Criteria '{criteria}': can't verify automatically",
         )
 
     def get_summary(self) -> str:

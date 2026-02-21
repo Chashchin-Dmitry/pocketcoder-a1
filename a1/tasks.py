@@ -198,6 +198,8 @@ class TaskManager:
             lines.append(f"{status_mark} [{t.id}] {t.title}")
             if t.description:
                 lines.append(f"    {t.description[:100]}")
+            if t.success_criteria and t.status != "done":
+                lines.append(f"    SUCCESS CRITERIA: {t.success_criteria}")
 
         # Добавляем raw thoughts если есть
         thoughts = self.get_raw_thoughts()

@@ -36,6 +36,7 @@ class SessionLoop:
         self._running = False
         self._current_process: Optional[subprocess.Popen] = None
         self._log_callback = None  # Callback for live log streaming
+        self._last_verification = None  # Last verification result
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
@@ -137,6 +138,75 @@ class SessionLoop:
 
         return None, None
 
+    def _verify_session(self) -> dict:
+        """Post-session verification — don't trust agent, verify.
+
+        Returns: {"passed": bool, "issues": [], "summary": str}
+        """
+        issues = []
+
+        # 1. Run validator (syntax, tests, lint, build, git)
+        print("  [VERIFY] Running validation checks...")
+        val_results = self.validator.run_all()
+        for name, report in val_results.items():
+            if report.result.value == "fail":
+                issues.append(f"{name}: {report.message}")
+                if report.details:
+                    issues.append(f"  {report.details[:200]}")
+
+        # 2. Check that tasks marked "done" are legit
+        done_tasks = self.tasks.get_tasks(status="done")
+        checkpoint = self.checkpoint.load()
+        files_modified = checkpoint.get("files_modified", [])
+
+        # 2a. Files from checkpoint actually exist?
+        if files_modified:
+            files_report = self.validator.check_files_exist(files_modified)
+            if files_report.result.value == "fail":
+                issues.append(f"files: {files_report.message}")
+
+        # 2b. Success criteria met?
+        for task in done_tasks:
+            if task.success_criteria:
+                criteria_report = self.validator.check_criteria(task.success_criteria)
+                if criteria_report.result.value == "fail":
+                    issues.append(f"{task.id} criteria: {criteria_report.message}")
+
+        # 3. All tasks done? (if checkpoint says COMPLETED)
+        if checkpoint.get("status") == "COMPLETED":
+            done, total = self.tasks.get_progress()
+            if done < total:
+                issues.append(f"tasks: Only {done}/{total} done but checkpoint says COMPLETED")
+
+        # Build result
+        passed = len(issues) == 0
+        summary_lines = []
+        if passed:
+            summary_lines.append("[VERIFY] All checks PASSED")
+            for name, report in val_results.items():
+                icon = "OK" if report.result.value == "ok" else "SKIP"
+                summary_lines.append(f"  [{icon}] {name}: {report.message}")
+        else:
+            summary_lines.append(f"[VERIFY] FAILED — {len(issues)} issues:")
+            for issue in issues:
+                summary_lines.append(f"  - {issue}")
+
+        summary = "\n".join(summary_lines)
+        print(summary)
+
+        # Log callback for dashboard
+        if self._log_callback:
+            try:
+                status = "text" if passed else "bash"
+                self._log_callback(
+                    f"[Verification] {'PASSED' if passed else 'FAILED: ' + '; '.join(issues[:3])}",
+                    status,
+                )
+            except Exception:
+                pass
+
+        return {"passed": passed, "issues": issues, "summary": summary}
+
     def _read_queue_messages(self) -> str:
         """Read unread messages from queue.json and mark them as read"""
         import json
@@ -161,11 +231,31 @@ class SessionLoop:
         lines.append("Please address these messages as part of your work.\n")
         return "\n".join(lines)
 
+    def _get_verification_prompt(self) -> str:
+        """Build verification failure info for prompt"""
+        if not self._last_verification or self._last_verification.get("passed", True):
+            return ""
+        issues = self._last_verification.get("issues", [])
+        if not issues:
+            return ""
+        lines = [
+            "## ⚠ VERIFICATION FAILED (previous session)",
+            "The system ran automated checks and found these issues:",
+        ]
+        for issue in issues[:10]:
+            lines.append(f"- {issue}")
+        lines.append("")
+        lines.append("FIX THESE ISSUES before marking any task as done.")
+        lines.append("Do NOT set checkpoint status to COMPLETED until all checks pass.")
+        lines.append("")
+        return "\n".join(lines)
+
     def build_prompt(self, is_first: bool = False) -> str:
         """Build prompt for session (English prompts, respond in user's language)"""
         checkpoint_summary = self.checkpoint.get_summary()
         tasks_summary = self.tasks.get_summary()
         queue_messages = self._read_queue_messages()
+        verification_prompt = self._get_verification_prompt()
 
         if is_first:
             prompt = f"""
@@ -224,7 +314,7 @@ Always work on the pending task with the LOWEST priority number first.
 ## START
 Begin with the highest-priority pending task. Work autonomously.
 
-{queue_messages}"""
+{verification_prompt}{queue_messages}"""
         else:
             prompt = f"""
 AUTONOMOUS MODE — Continuing Session #{self.checkpoint.get_session_number()}
@@ -253,7 +343,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
 - You have max 25 tool-use turns. Work efficiently.
 - Focus on ONE task at a time.
 
-{queue_messages}Continue working.
+{verification_prompt}{queue_messages}Continue working.
 """
         return prompt.strip()
 
@@ -381,16 +471,34 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             print()
             print(f"-- Session #{cp['session']} ended (duration: {duration}s, exit: {exit_code})")
 
-            # Проверяем статус
+            # POST-SESSION VERIFICATION — don't trust agent, verify
+            verification = self._verify_session()
+            self._last_verification = verification
+
+            # Проверяем статус (only trust COMPLETED if verification passed)
             if self.checkpoint.is_completed():
-                print()
-                print("=" * 60)
-                print("[OK] ALL TASKS COMPLETED!")
-                print("=" * 60)
-                done, total = self.tasks.get_progress()
-                print(f"Tasks: {done}/{total}")
-                print(f"Sessions: {session_count}")
-                break
+                if verification["passed"]:
+                    print()
+                    print("=" * 60)
+                    print("[OK] ALL TASKS COMPLETED + VERIFIED!")
+                    print("=" * 60)
+                    done, total = self.tasks.get_progress()
+                    print(f"Tasks: {done}/{total}")
+                    print(f"Sessions: {session_count}")
+                    break
+                else:
+                    # Agent says COMPLETED but verification failed
+                    print()
+                    print("[!] Agent marked COMPLETED but verification FAILED")
+                    print("    Resetting to WORKING — will retry in next session")
+                    cp_data = self.checkpoint.load()
+                    cp_data["status"] = "WORKING"
+                    cp_data["last_verification"] = {
+                        "passed": False,
+                        "issues": verification["issues"],
+                        "session": cp_data.get("session", 0),
+                    }
+                    self.checkpoint.save(cp_data)
 
             # Проверяем прерывание
             if exit_code == 130:  # Ctrl+C
