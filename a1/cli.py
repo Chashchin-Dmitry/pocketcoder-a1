@@ -155,7 +155,7 @@ def cmd_dashboard(args):
 
 
 def cmd_test(args):
-    """Run vision-based tests"""
+    """Run E2E tests with real Playwright browser"""
     project_dir = Path(args.project).resolve()
 
     from .tester.runner import VisionTester
@@ -163,13 +163,10 @@ def cmd_test(args):
     tester = VisionTester(
         project_dir=project_dir,
         base_url=f"http://localhost:{args.port}",
-        use_vision=not args.no_vision,
     )
 
     if args.scenario:
         report = tester.run_one(args.scenario)
-    elif args.web_only:
-        report = tester.run_all(tags=["web"])
     else:
         report = tester.run_all()
 
@@ -268,10 +265,8 @@ def main():
     p_log.set_defaults(func=cmd_log)
 
     # test (vision tester)
-    p_test = subparsers.add_parser("test", help="Run vision-based QA tests")
-    p_test.add_argument("-s", "--scenario", type=int, help="Run specific scenario by ID")
-    p_test.add_argument("--web-only", action="store_true", help="Run only web tests")
-    p_test.add_argument("--no-vision", action="store_true", help="Disable AI vision analysis")
+    p_test = subparsers.add_parser("test", help="Run E2E tests with real Playwright browser")
+    p_test.add_argument("-s", "--scenario", type=int, help="Run specific scenario (1-7)")
     p_test.add_argument("--port", type=int, default=7331, help="Dashboard port (default: 7331)")
     p_test.set_defaults(func=cmd_test)
 
