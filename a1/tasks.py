@@ -23,6 +23,7 @@ class Task:
     title: str
     description: str = ""
     status: str = "pending"
+    priority: int = 0
     created_at: str = ""
     completed_at: Optional[str] = None
     raw_thought: Optional[str] = None  # Исходная мысль если была
@@ -57,9 +58,20 @@ class TaskManager:
 
         try:
             with open(self.tasks_file, "r") as f:
-                return json.load(f)
+                data = json.load(f)
         except (json.JSONDecodeError, IOError):
             return {"raw_thoughts": [], "tasks": [], "next_id": 1}
+
+        # Migrate: assign priorities if missing
+        needs_save = False
+        for i, t in enumerate(data.get("tasks", [])):
+            if "priority" not in t or t["priority"] == 0:
+                t["priority"] = i + 1
+                needs_save = True
+        if needs_save:
+            self._save_data(data)
+
+        return data
 
     def _save_data(self, data: Dict[str, Any]) -> None:
         """Сохранить данные"""
@@ -91,11 +103,15 @@ class TaskManager:
         """Добавить задачу"""
         data = self._load_data()
 
+        existing_priorities = [t.get("priority", 0) for t in data["tasks"]]
+        next_priority = max(existing_priorities, default=0) + 1
+
         task = Task(
             id=f"task_{data['next_id']:03d}",
             title=title,
             description=description,
             status="pending",
+            priority=next_priority,
             created_at=datetime.now().isoformat(),
             raw_thought=raw_thought,
         )
@@ -117,16 +133,16 @@ class TaskManager:
         return tasks
 
     def get_next_task(self) -> Optional[Task]:
-        """Получить следующую задачу для работы"""
+        """Получить следующую задачу для работы (по приоритету)"""
         # Сначала ищем in_progress
         in_progress = self.get_tasks(status="in_progress")
         if in_progress:
-            return in_progress[0]
+            return sorted(in_progress, key=lambda t: t.priority)[0]
 
-        # Потом pending
+        # Потом pending — по наименьшему приоритету
         pending = self.get_tasks(status="pending")
         if pending:
-            return pending[0]
+            return sorted(pending, key=lambda t: t.priority)[0]
 
         return None
 
@@ -152,6 +168,15 @@ class TaskManager:
             task_id, status="done", completed_at=datetime.now().isoformat()
         )
 
+    def reorder_tasks(self, task_ids: List[str]) -> None:
+        """Reorder tasks by assigning priorities based on position in task_ids list"""
+        data = self._load_data()
+        id_to_priority = {tid: idx + 1 for idx, tid in enumerate(task_ids)}
+        for t in data["tasks"]:
+            if t["id"] in id_to_priority:
+                t["priority"] = id_to_priority[t["id"]]
+        self._save_data(data)
+
     def get_progress(self) -> Tuple[int, int]:
         """Получить прогресс (done, total)"""
         tasks = self.get_tasks()
@@ -162,6 +187,7 @@ class TaskManager:
         """Получить текстовое резюме для промпта"""
         done, total = self.get_progress()
         tasks = self.get_tasks()
+        tasks.sort(key=lambda t: (t.status == "done", t.priority))
 
         lines = [f"## Tasks ({done}/{total} completed)"]
 

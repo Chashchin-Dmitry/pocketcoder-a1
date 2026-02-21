@@ -21,6 +21,7 @@ PROJECT_DIR = None
 AGENT_RUNNING = False
 AGENT_LOOP = None  # Reference to SessionLoop for stop control
 ACTIVITY_LOG = []  # Live activity log
+AGENT_LOG_BUFFER = []  # Live agent output lines for dashboard
 
 
 def esc(text: str) -> str:
@@ -39,6 +40,37 @@ def log_activity(action: str, details: str = "", status: str = "info"):
     # Keep last 100 entries
     if len(ACTIVITY_LOG) > 100:
         ACTIVITY_LOG.pop(0)
+
+
+def _classify_line(line: str) -> str:
+    """Classify a Claude output line into a tool type for icon display"""
+    lower = line.lower().strip()
+    if any(kw in lower for kw in ["read(", "reading file", "read file", "reading ", "read "]):
+        return "read"
+    elif any(kw in lower for kw in ["edit(", "editing file", "edit file", "editing "]):
+        return "edit"
+    elif any(kw in lower for kw in ["write(", "writing file", "write file", "creating file", "created "]):
+        return "write"
+    elif any(kw in lower for kw in ["bash(", "running:", "$ ", "command", "terminal", "pytest", "ruff "]):
+        return "bash"
+    elif any(kw in lower for kw in ["let me", "i'll", "i need", "thinking", "analyzing", "looking"]):
+        return "thinking"
+    return "text"
+
+
+def _on_agent_line(line: str):
+    """Parse agent output line and add to live buffer"""
+    stripped = line.rstrip("\n")
+    if not stripped:
+        return
+    entry = {
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "line": stripped,
+        "type": _classify_line(line),
+    }
+    AGENT_LOG_BUFFER.append(entry)
+    if len(AGENT_LOG_BUFFER) > 500:
+        AGENT_LOG_BUFFER.pop(0)
 
 
 CSS = '''
@@ -417,6 +449,114 @@ input[type="text"]::placeholder {
     color: var(--text-secondary);
 }
 
+textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+    box-sizing: border-box;
+}
+textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+.priority-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
+.task[draggable="true"] {
+    cursor: grab;
+}
+.task[draggable="true"]:active {
+    cursor: grabbing;
+}
+.task.drag-over {
+    border-top: 2px solid var(--accent);
+}
+
+.log-panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-top: 24px;
+    overflow: hidden;
+}
+.log-panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.log-feed {
+    max-height: 300px;
+    overflow-y: auto;
+}
+.log-entry {
+    display: flex;
+    gap: 8px;
+    padding: 5px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    align-items: center;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-entry i {
+    color: var(--accent);
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.log-time {
+    color: var(--text-secondary);
+    font-family: monospace;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.log-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.raw-log {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 12px 20px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+.log-toggle {
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+}
+
 button {
     padding: 10px 20px;
     border: none;
@@ -570,6 +710,9 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                     <a href="/commits" class="nav-item $nav_commits">
                         <i class="bi bi-git"></i> Commits
                     </a>
+                    <a href="/transform" class="nav-item $nav_transform">
+                        <i class="bi bi-magic"></i> Transform
+                    </a>
                 </div>
 
                 <div class="nav-section">
@@ -602,8 +745,135 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
             document.documentElement.setAttribute('data-theme', saved);
         }
 
-        // Auto-refresh every 5 seconds
-        setTimeout(() => location.reload(), 5000);
+        // Escape HTML
+        function escHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // --- AJAX polling (dashboard page only) ---
+        const pageName = '$page_name';
+        let logIndex = 0;
+
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    const badge = document.getElementById('status-badge');
+                    if (badge) {
+                        if (data.running) {
+                            badge.className = 'status status-running';
+                            badge.innerHTML = '<i class="bi bi-play-circle-fill"></i> Running';
+                        } else if (data.checkpoint && data.checkpoint.status === 'COMPLETED') {
+                            badge.className = 'status status-completed';
+                            badge.innerHTML = '<i class="bi bi-check-circle-fill"></i> Completed';
+                        } else {
+                            badge.className = 'status status-stopped';
+                            badge.innerHTML = '<i class="bi bi-stop-circle-fill"></i> Stopped';
+                        }
+                    }
+                    const tc = document.getElementById('task-count');
+                    if (tc && data.progress) {
+                        tc.textContent = data.progress[0] + '/' + data.progress[1];
+                    }
+                    const sc = document.getElementById('session-count');
+                    if (sc && data.checkpoint) {
+                        sc.textContent = '#' + data.checkpoint.session;
+                    }
+                    const fc = document.getElementById('files-count');
+                    if (fc && data.checkpoint) {
+                        fc.textContent = (data.checkpoint.files_modified || []).length;
+                    }
+                    const qms = document.getElementById('queue-msg-section');
+                    if (qms) {
+                        qms.style.display = data.running ? 'block' : 'none';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function updateLog() {
+            fetch('/api/log?since=' + logIndex)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.entries && data.entries.length > 0) {
+                        const feed = document.getElementById('action-feed');
+                        const rawlog = document.getElementById('raw-log');
+                        if (feed && rawlog) {
+                            data.entries.forEach(e => {
+                                const iconMap = {read:'bi-book', edit:'bi-pencil', write:'bi-file-earmark-plus', bash:'bi-terminal', thinking:'bi-chat-dots', text:'bi-text-paragraph'};
+                                const icon = iconMap[e.type] || 'bi-dot';
+                                feed.innerHTML += '<div class="log-entry"><i class="bi ' + icon + '"></i><span class="log-time">' + e.time + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
+                                rawlog.textContent += e.line + '\\n';
+                            });
+                            feed.scrollTop = feed.scrollHeight;
+                            rawlog.scrollTop = rawlog.scrollHeight;
+                        }
+                        logIndex = data.total;
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function sendQueueMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('queue-msg-input');
+            const status = document.getElementById('queue-msg-status');
+            if (!input.value.trim()) return;
+            fetch('/queue-message', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'message=' + encodeURIComponent(input.value)
+            }).then(r => r.json()).then(data => {
+                status.textContent = 'Message queued at ' + new Date().toLocaleTimeString();
+                input.value = '';
+            }).catch(() => { status.textContent = 'Failed to send'; });
+        }
+
+        if (pageName === 'dashboard') {
+            setInterval(updateStatus, 3000);
+            setInterval(updateLog, 2000);
+        } else {
+            setTimeout(() => location.reload(), 5000);
+        }
+
+        // --- Drag and Drop (tasks page) ---
+        if (pageName === 'tasks') {
+            let dragSrc = null;
+            document.querySelectorAll('.task[draggable]').forEach(el => {
+                el.addEventListener('dragstart', e => {
+                    dragSrc = el;
+                    el.style.opacity = '0.4';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                el.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    el.classList.add('drag-over');
+                });
+                el.addEventListener('dragleave', () => {
+                    el.classList.remove('drag-over');
+                });
+                el.addEventListener('drop', e => {
+                    e.preventDefault();
+                    el.classList.remove('drag-over');
+                    if (dragSrc && dragSrc !== el) {
+                        el.parentNode.insertBefore(dragSrc, el);
+                        const order = [...document.querySelectorAll('.task[data-task-id]')]
+                            .map(t => t.dataset.taskId);
+                        fetch('/api/reorder', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({order})
+                        }).then(() => location.reload());
+                    }
+                });
+                el.addEventListener('dragend', () => {
+                    el.style.opacity = '';
+                });
+            });
+        }
     </script>
 </body>
 </html>
@@ -629,8 +899,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_page('commits')
         elif path == '/settings':
             self.send_page('settings')
+        elif path == '/transform':
+            self.send_page('transform')
         elif path == '/api/status':
             self.send_json_status()
+        elif path.startswith('/api/log'):
+            self.send_json_log()
         else:
             self.send_error(404)
 
@@ -641,9 +915,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         if self.path == '/add-task':
             task_text = params.get('task', [''])[0]
+            task_desc = params.get('description', [''])[0]
             if task_text:
                 tasks = TaskManager(PROJECT_DIR)
-                tasks.add_task(task_text)
+                tasks.add_task(task_text, description=task_desc)
                 log_activity("Task added", task_text, "success")
             self.redirect('/')
 
@@ -665,6 +940,74 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif self.path == '/toggle-theme':
             self.redirect('/')
+        elif self.path == '/transform':
+            raw_text = params.get('text', [''])[0]
+            if raw_text:
+                result = self._transform_text(raw_text)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode('utf-8'))
+            else:
+                self.send_response(400)
+                self.end_headers()
+
+        elif self.path == '/transform-confirm':
+            try:
+                body = json.loads(post_data)
+                tasks_list = body.get('tasks', [])
+                tasks_mgr = TaskManager(PROJECT_DIR)
+                added = 0
+                for t in tasks_list:
+                    if t.get('title'):
+                        tasks_mgr.add_task(t['title'], description=t.get('description', ''))
+                        added += 1
+                log_activity("Transform confirmed", f"{added} tasks added", "success")
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True, "added": added}).encode('utf-8'))
+            except Exception:
+                self.send_response(400)
+                self.end_headers()
+
+        elif self.path == '/queue-message':
+            msg_text = params.get('message', [''])[0]
+            if msg_text:
+                queue_file = PROJECT_DIR / '.a1' / 'queue.json'
+                queue_data = {"messages": []}
+                if queue_file.exists():
+                    try:
+                        queue_data = json.loads(queue_file.read_text())
+                    except (json.JSONDecodeError, IOError):
+                        pass
+                queue_data["messages"].append({
+                    "text": msg_text,
+                    "added_at": datetime.now().isoformat(),
+                    "read": False,
+                })
+                queue_file.write_text(json.dumps(queue_data, indent=2, ensure_ascii=False))
+                log_activity("Message queued", msg_text[:50], "info")
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"ok": true}')
+
+        elif self.path == '/api/reorder':
+            try:
+                body = json.loads(post_data)
+                task_ids = body.get('order', [])
+                if task_ids:
+                    tasks_mgr = TaskManager(PROJECT_DIR)
+                    tasks_mgr.reorder_tasks(task_ids)
+                    log_activity("Tasks reordered", f"{len(task_ids)} tasks", "info")
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}')
+            except Exception:
+                self.send_response(400)
+                self.end_headers()
         else:
             self.send_error(404)
 
@@ -683,12 +1026,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             'nav_sessions': 'active' if page == 'sessions' else '',
             'nav_log': 'active' if page == 'log' else '',
             'nav_commits': 'active' if page == 'commits' else '',
+            'nav_transform': 'active' if page == 'transform' else '',
             'nav_settings': 'active' if page == 'settings' else '',
         }
 
         html = HTML_TEMPLATE.substitute(
             theme=theme,
             content=content,
+            page_name=page,
             **nav_active
         )
 
@@ -710,6 +1055,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return self.build_commits_page()
         elif page == 'settings':
             return self.build_settings_page()
+        elif page == 'transform':
+            return self.build_transform_page()
         return ''
 
     def build_dashboard(self):
@@ -732,9 +1079,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             status_class = 'status-stopped'
             status_text = '<i class="bi bi-stop-circle-fill"></i> Stopped'
 
-        # Tasks HTML (last 5)
+        # Tasks HTML (last 5, sorted by priority)
+        sorted_tasks = sorted(all_tasks, key=lambda t: (t.status == 'done', t.priority))
         tasks_html = ''
-        for t in all_tasks[:5]:
+        for t in sorted_tasks[:5]:
             if t.status == 'done':
                 check_class = 'done'
                 check_icon = '<i class="bi bi-check"></i>'
@@ -745,17 +1093,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 check_class = ''
                 check_icon = ''
 
-            phase = getattr(t, 'phase', '') if hasattr(t, 'phase') else ''
-            phase_html = f'<span class="task-phase">{phase}</span>' if phase else ''
+            pri = getattr(t, 'priority', 0)
+            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
 
             tasks_html += f'''
             <div class="task">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
-                    <div class="task-meta">{esc(t.id)}</div>
+                    <div class="task-meta">{esc(t.id)} {pri_badge}</div>
                 </div>
-                {phase_html}
             </div>
             '''
 
@@ -794,7 +1141,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         <div class="header">
             <h1 class="page-title">Dashboard</h1>
             <div class="header-actions">
-                <span class="status {status_class}">{status_text}</span>
+                <span class="status {status_class}" id="status-badge">{status_text}</span>
                 <button class="theme-toggle" onclick="toggleTheme()">
                     <i class="bi bi-moon-stars"></i>
                 </button>
@@ -804,7 +1151,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         <div class="cards">
             <div class="card">
                 <div class="card-title"><i class="bi bi-check2-square"></i> Tasks</div>
-                <div class="card-value">{done}/{total}</div>
+                <div class="card-value" id="task-count">{done}/{total}</div>
                 <div class="card-sub">completed</div>
                 <div class="progress">
                     <div class="progress-fill" style="width: {progress}%"></div>
@@ -812,7 +1159,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             </div>
             <div class="card">
                 <div class="card-title"><i class="bi bi-terminal"></i> Session</div>
-                <div class="card-value">#{cp.get('session', 0)}</div>
+                <div class="card-value" id="session-count">#{cp.get('session', 0)}</div>
                 <div class="card-sub">{cp.get('status', 'Not started')}</div>
             </div>
             <div class="card">
@@ -822,7 +1169,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             </div>
             <div class="card">
                 <div class="card-title"><i class="bi bi-file-earmark-code"></i> Files</div>
-                <div class="card-value">{len(cp.get('files_modified', []))}</div>
+                <div class="card-value" id="files-count">{len(cp.get('files_modified', []))}</div>
                 <div class="card-sub">modified</div>
             </div>
         </div>
@@ -839,14 +1186,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <h3>Quick Add</h3>
             <form method="POST" action="/add-task">
                 <div class="form-row">
-                    <input type="text" name="task" placeholder="Add a new task..." required>
+                    <input type="text" name="task" placeholder="Task title..." required>
                     <button type="submit" class="btn-primary"><i class="bi bi-plus"></i> Add</button>
                 </div>
+                <textarea name="description" placeholder="Description (optional)..." rows="2"></textarea>
             </form>
         </div>
 
         <div class="controls">
             {control_html}
+        </div>
+
+        <div class="form-section" id="queue-msg-section" style="{'display:block' if AGENT_RUNNING else 'display:none'}">
+            <h3><i class="bi bi-envelope"></i> Message to Agent</h3>
+            <form onsubmit="sendQueueMessage(event)">
+                <div class="form-row">
+                    <input type="text" id="queue-msg-input" placeholder="Send instruction to agent (next session)..." required>
+                    <button type="submit" class="btn-primary"><i class="bi bi-send"></i> Send</button>
+                </div>
+            </form>
+            <div id="queue-msg-status" style="font-size:12px;color:var(--text-secondary);margin-top:6px"></div>
+        </div>
+
+        <div class="log-panel">
+            <div class="log-panel-header">
+                <span><i class="bi bi-activity"></i> Agent Live Log</span>
+                <button class="log-toggle" onclick="document.getElementById('raw-log-wrap').style.display = document.getElementById('raw-log-wrap').style.display === 'none' ? 'block' : 'none'">Toggle Raw</button>
+            </div>
+            <div class="log-feed" id="action-feed">
+                {self._render_log_entries()}
+            </div>
+            <div id="raw-log-wrap" style="display:none">
+                <div class="raw-log" id="raw-log">{self._render_raw_log()}</div>
+            </div>
         </div>
 
         <div class="activity">
@@ -860,6 +1232,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def build_tasks_page(self):
         tasks_mgr = TaskManager(PROJECT_DIR)
         all_tasks = tasks_mgr.get_tasks()
+        all_tasks.sort(key=lambda t: (t.status == 'done', t.priority))
         thoughts = tasks_mgr.get_raw_thoughts()
 
         tasks_html = ''
@@ -875,12 +1248,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 check_icon = ''
 
             desc = t.description[:100] if t.description else ''
+            pri = getattr(t, 'priority', 0)
+            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
+            draggable = 'draggable="true"' if t.status != 'done' else ''
+
             tasks_html += f'''
-            <div class="task">
+            <div class="task" {draggable} data-task-id="{t.id}">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
-                    <div class="task-meta">{esc(t.id)} {(' - ' + esc(desc)) if desc else ''}</div>
+                    <div class="task-meta">{esc(t.id)} {pri_badge} {(' - ' + esc(desc)) if desc else ''}</div>
                 </div>
             </div>
             '''
@@ -919,9 +1296,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <h3>Add Task</h3>
             <form method="POST" action="/add-task">
                 <div class="form-row">
-                    <input type="text" name="task" placeholder="Task description..." required>
+                    <input type="text" name="task" placeholder="Task title..." required>
                     <button type="submit" class="btn-primary"><i class="bi bi-plus"></i> Add Task</button>
                 </div>
+                <textarea name="description" placeholder="Description (optional)..." rows="3"></textarea>
             </form>
             <form method="POST" action="/add-thought" style="margin-top:12px">
                 <div class="form-row">
@@ -1099,6 +1477,148 @@ class DashboardHandler(BaseHTTPRequestHandler):
         </div>
         '''
 
+    def build_transform_page(self):
+        return '''
+        <div class="header">
+            <h1 class="page-title"><i class="bi bi-magic"></i> Transform</h1>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars"></i>
+            </button>
+        </div>
+
+        <div class="form-section">
+            <h3>Raw Text to Tasks</h3>
+            <p style="color: var(--text-secondary); margin-bottom:16px; font-size:13px">
+                Enter raw text, notes, or ideas — AI will break them into structured tasks.
+            </p>
+            <textarea id="transform-input" rows="6" placeholder="Example: Add login page, registration form, password reset, write tests for auth..."></textarea>
+            <div style="margin-top:12px">
+                <button class="btn-primary" onclick="doTransform()" id="transform-btn">
+                    <i class="bi bi-magic"></i> AI Transform
+                </button>
+                <span id="transform-status" style="margin-left:12px;font-size:13px;color:var(--text-secondary)"></span>
+            </div>
+        </div>
+
+        <div id="transform-preview" style="display:none;margin-top:24px">
+            <div class="task-list">
+                <div class="task-header">
+                    <h3>Preview Tasks</h3>
+                    <button class="btn-success" onclick="confirmTransform()">
+                        <i class="bi bi-check-all"></i> Add Selected
+                    </button>
+                </div>
+                <div id="preview-tasks"></div>
+            </div>
+        </div>
+
+        <script>
+        let transformedTasks = [];
+
+        function doTransform() {
+            const text = document.getElementById('transform-input').value.trim();
+            if (!text) return;
+            const btn = document.getElementById('transform-btn');
+            const status = document.getElementById('transform-status');
+            btn.disabled = true;
+            status.textContent = 'Thinking...';
+
+            fetch('/transform', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: 'text=' + encodeURIComponent(text)
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                if (data.tasks && data.tasks.length > 0) {
+                    transformedTasks = data.tasks;
+                    status.textContent = data.tasks.length + ' tasks generated';
+                    renderPreview(data.tasks);
+                } else {
+                    status.textContent = data.error || 'No tasks generated';
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                status.textContent = 'Error: ' + err.message;
+            });
+        }
+
+        function renderPreview(tasks) {
+            const container = document.getElementById('preview-tasks');
+            container.innerHTML = '';
+            tasks.forEach((t, i) => {
+                container.innerHTML += '<div class="task"><div class="task-check"><input type="checkbox" checked data-idx="' + i + '" style="width:18px;height:18px;cursor:pointer"></div><div class="task-content"><div class="task-title">' + escHtml(t.title) + '</div><div class="task-meta">' + escHtml(t.description || '') + '</div></div></div>';
+            });
+            document.getElementById('transform-preview').style.display = 'block';
+        }
+
+        function confirmTransform() {
+            const checks = document.querySelectorAll('#preview-tasks input[type=checkbox]');
+            const selected = [];
+            checks.forEach(cb => {
+                if (cb.checked) selected.push(transformedTasks[parseInt(cb.dataset.idx)]);
+            });
+            if (selected.length === 0) return;
+            fetch('/transform-confirm', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({tasks: selected})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    document.getElementById('transform-status').textContent = data.added + ' tasks added!';
+                    document.getElementById('transform-preview').style.display = 'none';
+                    document.getElementById('transform-input').value = '';
+                }
+            });
+        }
+        </script>
+        '''
+
+    def _transform_text(self, raw_text: str) -> dict:
+        """Use Claude to break raw text into structured tasks"""
+        import os
+        import subprocess
+
+        prompt = f'''Break the following text into structured tasks for a software project.
+Return ONLY valid JSON array, no other text. Each task object must have:
+- "title": short task title (imperative, e.g. "Add login page")
+- "description": 1-2 sentence description
+
+Text to transform:
+{raw_text}
+
+Return format: [{{"title": "...", "description": "..."}}, ...]'''
+
+        try:
+            env = os.environ.copy()
+            env.pop("CLAUDECODE", None)
+            result = subprocess.run(
+                ["claude", "-p", prompt, "--max-turns", "1", "--no-session-persistence"],
+                cwd=str(PROJECT_DIR),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            output = result.stdout.strip()
+            # Try to extract JSON from output
+            start = output.find('[')
+            end = output.rfind(']')
+            if start >= 0 and end > start:
+                tasks = json.loads(output[start:end+1])
+                return {"tasks": tasks}
+            return {"tasks": [], "error": "Could not parse AI response"}
+        except subprocess.TimeoutExpired:
+            return {"tasks": [], "error": "AI request timed out"}
+        except FileNotFoundError:
+            return {"tasks": [], "error": "Claude CLI not found"}
+        except Exception as e:
+            return {"tasks": [], "error": str(e)}
+
     def send_json_status(self):
         checkpoint = CheckpointManager(PROJECT_DIR)
         tasks = TaskManager(PROJECT_DIR)
@@ -1116,9 +1636,44 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
+    def send_json_log(self):
+        """Return agent log entries since a given index"""
+        query = urlparse(self.path).query
+        params = parse_qs(query)
+        since = int(params.get('since', ['0'])[0])
+
+        entries = AGENT_LOG_BUFFER[since:]
+        data = {
+            'entries': entries,
+            'total': len(AGENT_LOG_BUFFER),
+            'since': since,
+        }
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
+
+    def _render_log_entries(self):
+        """Render existing log buffer entries as HTML for initial page load"""
+        icon_map = {
+            'read': 'bi-book', 'edit': 'bi-pencil', 'write': 'bi-file-earmark-plus',
+            'bash': 'bi-terminal', 'thinking': 'bi-chat-dots', 'text': 'bi-text-paragraph',
+        }
+        html = ''
+        for e in AGENT_LOG_BUFFER[-50:]:
+            icon = icon_map.get(e.get('type', 'text'), 'bi-dot')
+            html += f'<div class="log-entry"><i class="bi {icon}"></i><span class="log-time">{esc(e["time"])}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
+        return html
+
+    def _render_raw_log(self):
+        """Render raw log text for initial page load"""
+        return esc('\n'.join(e['line'] for e in AGENT_LOG_BUFFER[-50:]))
+
     def start_agent(self):
         global AGENT_RUNNING, AGENT_LOOP
         if not AGENT_RUNNING:
+            AGENT_LOG_BUFFER.clear()
             log_activity("Agent started", "", "success")
 
             def run():
@@ -1127,6 +1682,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 try:
                     from .loop import SessionLoop
                     loop = SessionLoop(PROJECT_DIR)
+                    loop._log_callback = _on_agent_line
                     AGENT_LOOP = loop
                     loop.start()
                 finally:

@@ -35,6 +35,7 @@ class SessionLoop:
 
         self._running = False
         self._current_process: Optional[subprocess.Popen] = None
+        self._log_callback = None  # Callback for live log streaming
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
@@ -57,10 +58,35 @@ class SessionLoop:
         if self._current_process:
             self._current_process.terminate()
 
+    def _read_queue_messages(self) -> str:
+        """Read unread messages from queue.json and mark them as read"""
+        import json
+        queue_file = self.project_dir / ".a1" / "queue.json"
+        if not queue_file.exists():
+            return ""
+        try:
+            data = json.loads(queue_file.read_text())
+        except (json.JSONDecodeError, IOError):
+            return ""
+        unread = [m for m in data.get("messages", []) if not m.get("read")]
+        if not unread:
+            return ""
+        # Mark as read
+        for m in data["messages"]:
+            if not m.get("read"):
+                m["read"] = True
+        queue_file.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        lines = ["## USER MESSAGES (from queue)"]
+        for m in unread:
+            lines.append(f"- [{m.get('added_at', '?')}] {m['text']}")
+        lines.append("Please address these messages as part of your work.\n")
+        return "\n".join(lines)
+
     def build_prompt(self, is_first: bool = False) -> str:
         """Build prompt for session (English prompts, respond in user's language)"""
         checkpoint_summary = self.checkpoint.get_summary()
         tasks_summary = self.tasks.get_summary()
+        queue_messages = self._read_queue_messages()
 
         if is_first:
             prompt = f"""
@@ -107,14 +133,19 @@ When done or before stopping, edit .a1/checkpoint.json:
 ## SUCCESS CRITERIA
 Each task has success_criteria field — verify it before marking done.
 
+## TASK PRIORITY
+Tasks are ordered by priority (lower number = higher priority).
+Always work on the pending task with the LOWEST priority number first.
+
 ## IMPORTANT
 - You have max 25 tool-use turns. Work efficiently.
 - Focus on ONE task at a time.
 - Validate your changes before marking done.
 
 ## START
-Begin with first pending task. Work autonomously.
-"""
+Begin with the highest-priority pending task. Work autonomously.
+
+{queue_messages}"""
         else:
             prompt = f"""
 AUTONOMOUS MODE — Continuing Session #{self.checkpoint.get_session_number()}
@@ -143,7 +174,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
 - You have max 25 tool-use turns. Work efficiently.
 - Focus on ONE task at a time.
 
-Continue working.
+{queue_messages}Continue working.
 """
         return prompt.strip()
 
@@ -179,14 +210,25 @@ Continue working.
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                bufsize=1,
             )
 
             output_lines = []
             with open(log_file, "w") as f:
-                for line in self._current_process.stdout:
-                    print(line, end="")
-                    f.write(line)
+                while True:
+                    line = self._current_process.stdout.readline()
+                    if not line and self._current_process.poll() is not None:
+                        break
+                    if line:
+                        print(line, end="")
+                        f.write(line)
+                        f.flush()
                     output_lines.append(line)
+                    if self._log_callback:
+                        try:
+                            self._log_callback(line)
+                        except Exception:
+                            pass
 
             self._current_process.wait()
             returncode = self._current_process.returncode
