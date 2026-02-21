@@ -144,11 +144,59 @@ pca test --no-vision      # Run all tests
 
 ## BUGS FIXED (2026-02-21)
 
-1. **loop.py** — Claude CLI args: `["claude", prompt]` → `["claude", "--print", "-p", prompt]`
+1. **loop.py** — Claude CLI args: `["claude", prompt]` → `["claude", "-p", prompt]`
 2. **loop.py** — Added output capture to session logs
-3. **dashboard.py** — Stop button now connected to `loop.stop()`
-4. **dashboard.py** — XSS fixed with `html.escape()` on all user inputs
-5. **checkpoint.py** — decisions[] limited to last 20 entries
+3. **loop.py** — Nested sessions: unset `CLAUDECODE` env var
+4. **loop.py** — Permissions: `--dangerously-skip-permissions` for autonomous mode
+5. **dashboard.py** — Stop button now connected to `loop.stop()`
+6. **dashboard.py** — XSS fixed with `html.escape()` on all user inputs
+7. **checkpoint.py** — decisions[] limited to last 20 entries
+
+---
+
+## CLAUDE CLI REFERENCE (for subprocess calls)
+
+### Correct way to call claude from Python:
+```python
+import os, subprocess
+
+# MUST unset CLAUDECODE or nested sessions will be blocked
+env = os.environ.copy()
+env.pop("CLAUDECODE", None)
+
+proc = subprocess.Popen(
+    [
+        "claude",
+        "-p", prompt,                       # Non-interactive mode (REQUIRED)
+        "--dangerously-skip-permissions",    # Auto-approve file writes
+        "--no-session-persistence",          # Don't save session to disk
+    ],
+    cwd=str(project_dir),
+    env=env,                                # Clean env without CLAUDECODE
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    text=True,
+)
+
+# Read output line by line
+for line in proc.stdout:
+    print(line, end="")
+```
+
+### Key flags:
+| Flag | What it does |
+|------|-------------|
+| `-p "prompt"` | Non-interactive mode (print and exit) |
+| `--dangerously-skip-permissions` | Auto-approve all tool calls |
+| `--no-session-persistence` | Don't clutter session history |
+| `--output-format json` | Structured JSON output |
+| `--max-turns 5` | Limit agentic turns |
+| `--allowedTools "Bash,Read,Edit"` | Only allow specific tools |
+
+### Critical: CLAUDECODE env var
+- Claude Code sets `CLAUDECODE=1` in its shell environment
+- Nested `claude` calls fail with "cannot be launched inside another session"
+- **Fix:** `env.pop("CLAUDECODE", None)` before subprocess
 
 ---
 
@@ -177,6 +225,14 @@ pca test --no-vision      # Run all tests
 - [x] Vision Tester (7/7 scenarios pass)
 - [x] Playwright MCP integration
 - [x] CURRENT_STAGE.md with cause-effect chains
+
+**Done (2026-02-21 continued):**
+- [x] Nested claude sessions fix (CLAUDECODE env var)
+- [x] Auto-permissions (--dangerously-skip-permissions)
+- [x] Full sandbox test on epotos-templates
+- [x] A1 agent autonomously created 450-line provider.ts (DeepSeek + Ollama)
+- [x] 20 dashboard screenshots documenting full web flow
+- [x] Claude CLI reference docs in CLAUDE.md
 
 **In Progress:**
 - See TODO.md and .a1/tasks.json
