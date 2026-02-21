@@ -66,7 +66,7 @@
 
 ---
 
-## BUGS FIXED (11 total)
+## BUGS FIXED (12 total)
 
 | # | File | Bug | Fix | Status |
 |---|------|-----|-----|--------|
@@ -81,6 +81,7 @@
 | 9 | loop.py | stream-json needs --verbose | Added `--verbose` flag | FIXED |
 | 10 | loop.py | Parser wrong event format | tool_use in assistant content[] | FIXED |
 | 11 | loop.py | f-string nested quotes | Extracted to variable | FIXED |
+| 12 | validator.py | check_criteria case-sensitive | Re-match on original criteria (not lowered) | FIXED |
 
 ---
 
@@ -687,3 +688,80 @@ Agent completed 1/1 task in 60 seconds, 1 session
 2. Bug #10: Parser looked for `content_block_start` events, but actual format wraps tool_use in `assistant` messages
 
 ### Screenshots: `sandbox/epotos-templates/screenshots/e2e3/` (21 files)
+
+---
+
+## E2E TEST #4 RESULTS (2026-02-21, verification system + full web flow)
+
+### Test Project: `sandbox/test-verify/`
+- Fresh Python project: `calculator.py` (add/subtract/multiply/divide)
+- Git initialized, 1 initial commit
+- 2 tasks added via WEB FORMS (Playwright browser automation)
+
+### Full automated flow:
+```
+STEP 0: Start dashboard on :7331
+STEP 1: Screenshot all 7 pages (initial state) → 7 screenshots
+STEP 2: Add tasks via web:
+  - Playwright fills input[name="task"] + textarea[name="description"]
+  - Click "Add" button → task created
+  - Task 1: "Write pytest tests for calculator.py"
+  - Task 2: "Create README.md with usage examples"
+  - Screenshots after each add → 4 screenshots
+STEP 3: Click "Start Agent" on dashboard → agent running
+  - Screenshot → 1 screenshot
+STEP 4: Monitor loop (12s interval):
+  - GET /api/status → running, progress (done/total)
+  - GET /api/log?since=N → new log entries with icon types
+  - Read .a1/checkpoint.json → status, session, files_modified
+  - Screenshot dashboard → 4 screenshots
+  12s: running=true, 1/4, 5 logs (thinking, text, read)
+  24s: running=true, 4/4, 12 logs (+read, read, read)
+  36s: running=true, 4/4, 16 logs (+text, edit, read) → checkpoint: COMPLETED
+  48s: running=false → agent stopped
+STEP 5: Final screenshots all 7 pages → 7 screenshots
+STEP 6: Backend verification
+```
+
+### Results:
+```
+PASSED — 4/4 tasks done, 23 tests, 2 git commits, 48 seconds
+
+Agent output:
+  - tests/test_calculator.py: 23 tests in 4 classes (TestAdd/Sub/Mul/Div)
+  - tests/__init__.py: empty init
+  - README.md: 60 lines with code examples
+  - 2 git commits: "add pytest tests" + "add README"
+
+Validator (manual check after test):
+  [OK  ] syntax: 3 files
+  [OK  ] tests: 23 passed
+  [OK  ] lint: clean
+  [FAIL] build: no build module (pre-existing → baseline skip)
+  [OK  ] git: changes committed
+
+Verification: PASSED CLEAN (no last_verification in checkpoint)
+  → Agent did everything right, verification gate confirmed it
+
+Icon distribution (20 log entries):
+  read     : 9
+  text     : 7
+  bash     : 2
+  thinking : 1
+  edit     : 1
+
+Screenshots: 23 total
+```
+
+### Bug found during test:
+- Bug #12: `check_criteria("README.md exists")` → FAIL because `.lower()` turned "README.md" into "readme.md" (Linux case-sensitive). Fix: re-match on original criteria string.
+
+### Screenshots: `sandbox/test-verify/screenshots/` (23 files)
+| Range | What |
+|-------|------|
+| 01-07 | Initial state: all 7 pages |
+| 08-09 | Task added via web form (title + description) |
+| 10-11 | Tasks page + dashboard before start |
+| 12 | Agent started (Running badge) |
+| 13-16 | Monitoring: dashboard every 12s with progress |
+| 17-23 | Final state: all 7 pages (4/4 completed) |

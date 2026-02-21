@@ -307,12 +307,17 @@ class Validator:
             )
 
         # File exists? (pattern: "file X exists" or "X.ext exists")
+        # Use ORIGINAL criteria for filename (not lowercased) to preserve case
         import re
         file_match = re.search(r"['\"]?(\S+\.\w{1,5})['\"]?\s+exist", cl)
         if not file_match:
             file_match = re.search(r"exist\w*\s+['\"]?(\S+\.\w{1,5})['\"]?", cl)
         if file_match:
-            fname = file_match.group(1)
+            # Re-match on original criteria to get correct case
+            orig_match = re.search(r"['\"]?(\S+\.\w{1,5})['\"]?\s+exist", criteria, re.IGNORECASE)
+            if not orig_match:
+                orig_match = re.search(r"exist\w*\s+['\"]?(\S+\.\w{1,5})['\"]?", criteria, re.IGNORECASE)
+            fname = orig_match.group(1) if orig_match else file_match.group(1)
             exists = (self.project_dir / fname).exists()
             return ValidationReport(
                 result=ValidationResult.OK if exists else ValidationResult.FAIL,
