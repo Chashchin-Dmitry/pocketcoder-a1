@@ -1,0 +1,13 @@
+{
+  "status": "WORKING",
+  "session": 1,
+  "current_task": null,
+  "context_percent": 0,
+  "files_modified": [],
+  "decisions": [],
+  "next_steps": [],
+  "last_action": null,
+  "created_at": "2026-02-21T19:22:48.993147",
+  "updated_at": "2026-02-21T19:22:48.993164",
+  "session_started_at": "2026-02-21T19:22:48.993160"
+}

@@ -1,0 +1,7 @@
+[project]
+name = "calculator"
+version = "0.1.0"
+description = "Simple calculator for E2E testing"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

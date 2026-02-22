@@ -1,0 +1,30 @@
+{
+  "raw_thoughts": [],
+  "tasks": [
+    {
+      "id": "task_001",
+      "title": "Write pytest tests for calculator.py",
+      "description": "Create tests/test_calculator.py with tests for add, subtract, multiply, divide. Include edge cases: division by zero, negative numbers, floats.",
+      "status": "done",
+      "priority": 1,
+      "created_at": "2026-02-21T19:20:47.257648",
+      "completed_at": "2026-02-21T19:23:30.000000",
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
+    },
+    {
+      "id": "task_002",
+      "title": "Create README.md with usage examples",
+      "description": "Write README.md explaining what calculator.py does, with code examples for each function.",
+      "status": "done",
+      "priority": 2,
+      "created_at": "2026-02-21T19:21:41.822597",
+      "completed_at": "2026-02-21T19:24:00.000000",
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
+    }
+  ],
+  "next_id": 3
+}
