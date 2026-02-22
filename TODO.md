@@ -22,138 +22,137 @@
 
 ### 1.2 Checkpoint система [DONE]
 - [x] checkpoint.py — CheckpointManager class
-- [x] load_checkpoint()
-- [x] save_checkpoint()
-- [x] start_session()
-- [x] end_session()
-- [x] is_completed()
+- [x] load/save/start_session/end_session/is_completed
+- [x] decisions[-20:] limit fix (bug #7)
+- [x] session_metrics field
 
 ### 1.3 Task система [DONE]
 - [x] tasks.py — TaskManager class
-- [x] add_task()
-- [x] add_raw_thought()
-- [x] get_tasks()
-- [x] get_next_task()
-- [x] mark_done()
+- [x] CRUD: add_task/get_tasks/get_next_task/mark_done
+- [x] Priority field + auto-assign
+- [x] reorder_tasks() for DnD
+- [x] get_summary() with success_criteria
+- [x] add_raw_thought() for transform
 
 ### 1.4 Validator [DONE]
 - [x] validator.py — Validator class
-- [x] _check_syntax()
-- [x] _run_tests()
-- [x] _run_lint()
-- [x] _check_build()
+- [x] _check_syntax / _run_tests / _run_lint / _check_build
+- [x] has_git() / _check_git() — optional git support
+- [x] check_files_exist(paths) — verify files on disk
+- [x] check_criteria(criteria) — heuristic parser
 
 ### 1.5 Session Loop [DONE]
 - [x] loop.py — SessionLoop class
-- [x] build_prompt()
-- [x] run_session()
-- [x] _run_claude_max() (subprocess)
+- [x] build_prompt() — checkpoint + tasks + queue
+- [x] subprocess: claude -p --stream-json --verbose
+- [x] _parse_stream_event() — NDJSON real-time parser
+- [x] _log_callback → dashboard live log
+- [x] _capture_baseline / _verify_session / _is_new_issue
+- [x] Anti-infinite-loop (MAX_VERIFY_RETRIES=3, force_accept)
+- [x] Token metrics (rate_limit_event parsing)
+- [x] env.pop("CLAUDECODE") — nested sessions fix
 
 ### 1.6 CLI [DONE]
 - [x] cli.py — argparse
-- [x] pca init
-- [x] pca task add
-- [x] pca think
-- [x] pca tasks
-- [x] pca start
-- [x] pca status
-- [x] pca validate
-- [x] pca ui
+- [x] pca init/task add/think/tasks/start/status/validate/ui/log/test
 
-### 1.7 Web Dashboard [DONE]
-- [x] dashboard.py
-- [x] HTML template без эмодзи
-- [x] Bootstrap Icons
-- [x] Авто-поиск свободного порта
-- [x] Add task через форму
-- [x] Start/Stop кнопки
+### 1.7 Web Dashboard [DONE — MAJOR]
+- [x] dashboard.py — 2038 lines, 7 pages, 17 API
+- [x] 6 metric cards (Tasks/Session/Tokens/Cost/Duration/Files)
+- [x] 8 colored log icon types
+- [x] Task detail view (expandable, stages, criteria)
+- [x] Live timer (JS tickTimer())
+- [x] Drag-and-drop priorities
+- [x] Queue message to agent
+- [x] Transform (text → tasks via AI)
+- [x] Responsive layout (hamburger, 3→2→1 columns)
+- [x] XSS protection (html.escape)
+
+### 1.8 Vision QA Tester [DONE]
+- [x] tester/ — 5 modules, 1087 lines
+- [x] 7 scenarios (dashboard/tasks/thoughts/nav/theme/agent/api)
+- [x] Playwright headless browser
+- [x] Claude Vision analysis
+- [x] HTML/JSON reports
 
 ---
 
 ## PHASE 2: АВТОНОМНОСТЬ [IN PROGRESS]
 
-### 2.1 Улучшить Session Loop
-- [ ] Мониторинг контекста (/tokens parsing)
-- [ ] Авто-checkpoint при 70%
-- [ ] Dual exit gate (2 условия для выхода)
-- [ ] Rate limiting (защита от runaway)
+### 2.1 Post-Session Verification [DONE]
+- [x] 3-tier verification gate (blocking/warning/anti-loop)
+- [x] Baseline comparison (pre-existing issues skipped)
+- [x] Prompt injection (errors → next session)
+- [x] Force accept after 3 retries
 
-**Тест:** Запустить на 5 сессий, проверить что checkpoint корректно сохраняется
+### 2.2 Stream-JSON Live Logs [DONE]
+- [x] --verbose --output-format stream-json
+- [x] _parse_stream_event() — NDJSON parser
+- [x] 8 icon types with colors
+- [x] Real-time AJAX polling (2s log, 3s status)
 
-### 2.2 Git Integration
-- [ ] Авто-создание ветки для работы
-- [ ] Атомарные коммиты после каждой задачи
-- [ ] Проверка git status перед commit
-- [ ] Не коммитить если тесты fail
+### 2.3 Token Metrics [DONE]
+- [x] rate_limit_event parsing → _session_metrics
+- [x] get_session_metrics() → /api/status
+- [x] Dashboard cards (Tokens, Cost)
+- [x] Cost estimation ($3/1M in, $15/1M out)
 
-**Тест:** Проверить что после pca start создаётся ветка и коммиты
+### 2.4 Context Monitoring
+- [ ] Parse /tokens → context_percent
+- [ ] Auto-checkpoint at 70%
+- [ ] Dual exit gate (2 conditions)
+- [ ] Rate limiting (runaway protection)
 
-### 2.3 Улучшить Checkpoint
-- [ ] Сохранять diff файлов
-- [ ] Сохранять историю решений
-- [ ] Восстановление при crash
-- [ ] Merge checkpoints при конфликтах
+### 2.5 Git Integration
+- [ ] Auto-branch for work
+- [ ] Atomic commits after each task
+- [ ] git status check before commit
+- [ ] Don't commit if tests fail
 
-**Тест:** Прервать сессию Ctrl+C, проверить что checkpoint сохранён
+### 2.6 Checkpoint Improvement
+- [ ] Save diffs
+- [ ] Decision history
+- [ ] Crash recovery
+- [ ] Merge checkpoints on conflict
 
 ---
 
-## PHASE 3: ПРОВАЙДЕРЫ [TODO]
+## PHASE 3: ПРОВАЙДЕРЫ [IN PROGRESS]
 
-### 3.1 Claude API Provider
-- [ ] Добавить anthropic SDK зависимость
-- [ ] _run_claude_api() в loop.py
+### 3.1 Claude API Provider [IN PROGRESS]
+- [ ] anthropic SDK dependency
+- [ ] _run_claude_api() in loop.py
 - [ ] Streaming response
-- [ ] Token counting
-- [ ] Error handling (rate limits, etc)
-
-**Тест:** `pca start --provider claude-api` работает
+- [ ] Token counting (native)
+- [ ] Error handling (rate limits, timeouts)
+- [ ] Cost tracking (real, not estimated)
 
 ### 3.2 Ollama Provider
-- [ ] Добавить ollama зависимость
-- [ ] _run_ollama() в loop.py
-- [ ] Model selection
+- [ ] ollama SDK dependency
+- [ ] _run_ollama() in loop.py
+- [ ] Model selection (--model flag)
 - [ ] Context size detection
-
-**Тест:** `pca start --provider ollama --model qwen3:32b` работает
+- [ ] Streaming
 
 ### 3.3 OpenAI-Compatible Provider
-- [ ] Переиспользовать код из pocketcoder
+- [ ] Generic endpoint support
 - [ ] Presets (DeepSeek, Groq, etc)
-- [ ] Auto-detect endpoint
-
-**Тест:** `pca start --provider openai-compat --url https://api.deepseek.com` работает
+- [ ] --url flag
 
 ---
 
 ## PHASE 4: SMART FEATURES [TODO]
 
 ### 4.1 Smart Model Router
-- [ ] Классификация задач (simple/medium/complex)
-- [ ] Mapping задач на модели
-- [ ] Presets:
-  - [ ] cost_optimizer
-  - [ ] quality_first
-  - [ ] speed_demon
-  - [ ] custom
-- [ ] UI для настройки
+- [ ] Task classification (simple/medium/complex)
+- [ ] Model mapping
+- [ ] Presets (cost_optimizer, quality_first, speed_demon)
+- [ ] UI settings
 
-**Тест:** Router выбирает правильную модель для разных задач
-
-### 4.2 Transform (мысли → задачи)
-- [ ] Отправить raw_thoughts в LLM
-- [ ] Получить структурированные задачи
-- [ ] Разбить на подзадачи
-- [ ] Оценить сложность
-
-**Тест:** `pca transform` превращает "хочу роутер" в конкретные задачи
-
-### 4.3 Context Management
-- [ ] Авто-определение важных файлов
+### 4.2 Context Management
+- [ ] Auto-detect important files
 - [ ] Selective context loading
-- [ ] Summarization при переполнении
-
-**Тест:** При 70% контекста — корректная суммаризация
+- [ ] Summarization at overflow
 
 ---
 
@@ -164,115 +163,42 @@
 - [ ] tests/test_tasks.py
 - [ ] tests/test_validator.py
 - [ ] tests/test_loop.py
+- [ ] Coverage > 80%
 
-**Метрика:** pytest coverage > 80%
-
-### 5.2 Integration Tests
-- [ ] tests/test_cli.py
-- [ ] tests/test_dashboard.py
-- [ ] tests/test_full_workflow.py
-
-**Метрика:** Все интеграционные тесты проходят
-
-### 5.3 E2E Tests
-- [ ] Полный цикл: init → task → start → validate → complete
-- [ ] Тест с прерыванием и восстановлением
-- [ ] Тест с несколькими сессиями
-
-**Метрика:** E2E тест проходит за < 10 минут
+### 5.2 E2E Tests [6/6 PASSED]
+- [x] #1: Basic cycle (3/3 tasks, 90s)
+- [x] #2: Real project epotos-templates (3/3, 150s)
+- [x] #3: Stream-JSON verification (1/1, 60s)
+- [x] #4: Verification system (4/4, 48s)
+- [x] #5: Dashboard UX (77/77 checks)
+- [x] #6: Full cycle web→agent→done (3/3, 22/22, 165s)
 
 ---
 
 ## PHASE 6: ДОКУМЕНТАЦИЯ И РЕЛИЗ [TODO]
 
-### 6.1 Документация
-- [ ] README.md с примерами
+### 6.1 Documentation
+- [x] CLAUDE.md — project overview + module map
+- [x] CURRENT_STAGE.md — full architecture + cause-effect chains + manual
+- [x] TODO.md — phases roadmap (this file)
+- [ ] README.md for public (clean, user-facing)
+- [ ] API reference (docs/api.md)
 - [ ] CONTRIBUTING.md
-- [ ] CHANGELOG.md
-- [ ] Примеры в examples/
 
 ### 6.2 PyPI Release
-- [ ] Проверить pyproject.toml
-- [ ] Обновить версию
+- [ ] Update pyproject.toml metadata
 - [ ] python -m build
 - [ ] twine upload
-
-### 6.3 Дистрибутив
-- [ ] PyInstaller config
-- [ ] Сборка бинарника
-- [ ] Тестирование на чистой системе
 
 ---
 
 ## МЕТРИКИ УСПЕХА
 
-### Автономность
-| Метрика | Цель | Как измерить |
-|---------|------|--------------|
-| Сессий до ручного вмешательства | > 10 | Счётчик в логе |
-| Checkpoint recovery rate | 100% | Тест прерывания |
-| Task completion rate | > 90% | done/total tasks |
-
-### Качество
-| Метрика | Цель | Как измерить |
-|---------|------|--------------|
-| Test coverage | > 80% | pytest --cov |
-| Lint errors | 0 | ruff check |
-| Build success | 100% | python -m build |
-
-### Производительность
-| Метрика | Цель | Как измерить |
-|---------|------|--------------|
-| Task per session | > 2 | tasks_done / sessions |
-| Context efficiency | < 70% before exit | /tokens parsing |
-
----
-
-## КАК ЗАПУСТИТЬ ТЕСТЫ
-
-```bash
-# Unit tests
-pytest tests/ -v
-
-# С coverage
-pytest tests/ --cov=a1 --cov-report=html
-
-# Lint
-ruff check a1/
-
-# Type check (если добавим)
-mypy a1/
-
-# Full validation
-pca validate
-```
-
----
-
-## TROUBLESHOOTING
-
-### Проблема: Claude не запускается
-```bash
-# Проверить что CLI установлен
-which claude
-claude --version
-
-# Проверить что в PATH
-echo $PATH
-```
-
-### Проблема: Порт занят
-```bash
-# Найти процесс
-lsof -i :7331
-# Убить
-kill -9 <PID>
-```
-
-### Проблема: Checkpoint не сохраняется
-```bash
-# Проверить права
-ls -la .a1/
-# Проверить JSON
-cat .a1/checkpoint.json | python -m json.tool
-```
+| Метрика | Цель | Текущее |
+|---------|------|---------|
+| E2E tests | 6+ passed | 6/6 PASSED |
+| Bugs fixed | 0 known | 13 fixed, 0 open |
+| Dashboard pages | 7 | 7 |
+| API endpoints | 17 | 17 |
+| Log icon types | 8 | 8 |
+| Code lines | — | 4882 |

@@ -494,70 +494,156 @@ textarea::placeholder {
     border-top: 2px solid var(--accent);
 }
 
+/* Terminal-style log panel */
 .log-panel {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: #1e1e2e;
     border-radius: 12px;
     margin-top: 24px;
     overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    border: 1px solid #313244;
 }
 .log-panel-header {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: 600;
+    padding: 10px 16px;
+    background: #181825;
+    border-bottom: 1px solid #313244;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-.log-feed {
-    max-height: 300px;
-    overflow-y: auto;
+.terminal-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
 }
+.terminal-dots span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.terminal-dots .dot-red { background: #f38ba8; }
+.terminal-dots .dot-yellow { background: #f9e2af; }
+.terminal-dots .dot-green { background: #a6e3a1; }
+.terminal-title {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #6c7086;
+    letter-spacing: 0.5px;
+}
+.log-feed {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 4px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #45475a #1e1e2e;
+}
+.log-feed::-webkit-scrollbar { width: 6px; }
+.log-feed::-webkit-scrollbar-track { background: #1e1e2e; }
+.log-feed::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
 .log-entry {
     display: flex;
     gap: 8px;
-    padding: 5px 20px;
-    border-bottom: 1px solid var(--border-color);
-    font-size: 13px;
-    align-items: center;
+    padding: 3px 16px;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    align-items: flex-start;
+    line-height: 1.5;
+    transition: background 0.15s;
 }
-.log-entry:last-child { border-bottom: none; }
+.log-entry:hover {
+    background: rgba(69, 71, 90, 0.3);
+}
 .log-entry i {
-    color: var(--accent);
-    width: 18px;
+    width: 16px;
     text-align: center;
     flex-shrink: 0;
+    font-size: 11px;
+    margin-top: 2px;
 }
 .log-time {
-    color: var(--text-secondary);
-    font-family: monospace;
+    color: #585b70;
     font-size: 11px;
     flex-shrink: 0;
+    user-select: none;
 }
 .log-text {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #cdd6f4;
+}
+.log-prompt {
+    color: #a6e3a1;
+    flex-shrink: 0;
+    user-select: none;
+}
+.log-cursor {
+    display: inline-block;
+    width: 7px;
+    height: 14px;
+    background: #a6e3a1;
+    animation: blink 1s step-end infinite;
+    margin-left: 4px;
+    vertical-align: text-bottom;
+}
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.log-empty {
+    padding: 20px 16px;
+    color: #585b70;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-align: center;
 }
 .raw-log {
     max-height: 300px;
     overflow-y: auto;
-    padding: 12px 20px;
-    font-family: monospace;
-    font-size: 12px;
+    padding: 12px 16px;
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 11px;
     white-space: pre-wrap;
     word-break: break-all;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    background: #11111b;
+    color: #a6adc8;
+    border-top: 1px solid #313244;
 }
 .log-toggle {
-    font-size: 12px;
-    color: var(--accent);
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #89b4fa;
     cursor: pointer;
     background: none;
     border: none;
-    padding: 0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+.log-toggle:hover {
+    background: rgba(137, 180, 250, 0.1);
+}
+/* Pixel art indicator */
+.px-icon {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 1px;
+    flex-shrink: 0;
+    margin-top: 5px;
+    image-rendering: pixelated;
+    box-shadow: 1px 0 0 0 currentColor, 0 1px 0 0 currentColor;
+}
+.log-label {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    min-width: 44px;
+    flex-shrink: 0;
+    text-transform: uppercase;
 }
 
 button {
@@ -980,11 +1066,12 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                         const rawlog = document.getElementById('raw-log');
                         if (feed && rawlog) {
                             data.entries.forEach(e => {
-                                const iconMap = {read:'bi-eye', edit:'bi-pencil-square', write:'bi-file-earmark-plus', bash:'bi-terminal-fill', thinking:'bi-lightbulb', text:'bi-chat-left-text', metric:'bi-speedometer', verify:'bi-shield-check'};
-                                const colorMap = {read:'#3b82f6', edit:'#f97316', write:'#10b981', bash:'#8b5cf6', thinking:'#eab308', text:'#6b7280', metric:'#6366f1', verify:'#10b981'};
-                                const icon = iconMap[e.type] || 'bi-dot';
-                                const color = colorMap[e.type] || 'var(--accent)';
-                                feed.innerHTML += '<div class="log-entry"><i class="bi ' + icon + '" style="color:' + color + '"></i><span class="log-time">' + e.time + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
+                                const labelMap = {read:'READ', edit:'EDIT', write:'WRITE', bash:'BASH', thinking:'THINK', text:'OUT', metric:'METRIC', verify:'CHECK'};
+                                const colorMap = {read:'#89b4fa', edit:'#fab387', write:'#a6e3a1', bash:'#cba6f7', thinking:'#f9e2af', text:'#6c7086', metric:'#89dceb', verify:'#a6e3a1'};
+                                const label = labelMap[e.type] || 'LOG';
+                                const color = colorMap[e.type] || '#6c7086';
+                                const pixelIcon = '<span class="px-icon" style="background:' + color + '"></span>';
+                                feed.innerHTML += '<div class="log-entry">' + pixelIcon + '<span class="log-time">' + e.time + '</span><span class="log-label" style="color:' + color + '">' + label + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
                                 rawlog.textContent += e.line + '\\n';
                             });
                             feed.scrollTop = feed.scrollHeight;
@@ -1438,8 +1525,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         <div class="log-panel">
             <div class="log-panel-header">
-                <span><i class="bi bi-activity"></i> Agent Live Log</span>
-                <button class="log-toggle" onclick="document.getElementById('raw-log-wrap').style.display = document.getElementById('raw-log-wrap').style.display === 'none' ? 'block' : 'none'">Toggle Raw</button>
+                <div style="display:flex;align-items:center;gap:12px">
+                    <div class="terminal-dots">
+                        <span class="dot-red"></span>
+                        <span class="dot-yellow"></span>
+                        <span class="dot-green"></span>
+                    </div>
+                    <span class="terminal-title">agent@pocketcoder ~ live-log</span>
+                </div>
+                <button class="log-toggle" onclick="document.getElementById('raw-log-wrap').style.display = document.getElementById('raw-log-wrap').style.display === 'none' ? 'block' : 'none'">raw</button>
             </div>
             <div class="log-feed" id="action-feed">
                 {self._render_log_entries()}
@@ -1924,23 +2018,25 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
     def _render_log_entries(self):
-        """Render existing log buffer entries as HTML for initial page load"""
-        icon_map = {
-            'read': 'bi-eye', 'edit': 'bi-pencil-square', 'write': 'bi-file-earmark-plus',
-            'bash': 'bi-terminal-fill', 'thinking': 'bi-lightbulb', 'text': 'bi-chat-left-text',
-            'metric': 'bi-speedometer', 'verify': 'bi-shield-check',
+        """Render existing log buffer entries as HTML (terminal style)"""
+        label_map = {
+            'read': 'READ', 'edit': 'EDIT', 'write': 'WRITE',
+            'bash': 'BASH', 'thinking': 'THINK', 'text': 'OUT',
+            'metric': 'METRIC', 'verify': 'CHECK',
         }
         color_map = {
-            'read': '#3b82f6', 'edit': '#f97316', 'write': '#10b981',
-            'bash': '#8b5cf6', 'thinking': '#eab308', 'text': '#6b7280',
-            'metric': '#6366f1', 'verify': '#10b981',
+            'read': '#89b4fa', 'edit': '#fab387', 'write': '#a6e3a1',
+            'bash': '#cba6f7', 'thinking': '#f9e2af', 'text': '#6c7086',
+            'metric': '#89dceb', 'verify': '#a6e3a1',
         }
         html = ''
         for e in AGENT_LOG_BUFFER[-50:]:
             etype = e.get('type', 'text')
-            icon = icon_map.get(etype, 'bi-dot')
-            color = color_map.get(etype, 'var(--accent)')
-            html += f'<div class="log-entry"><i class="bi {icon}" style="color:{color}"></i><span class="log-time">{esc(e["time"])}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
+            label = label_map.get(etype, 'LOG')
+            color = color_map.get(etype, '#6c7086')
+            html += f'<div class="log-entry"><span class="px-icon" style="background:{color}"></span><span class="log-time">{esc(e["time"])}</span><span class="log-label" style="color:{color}">{label}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
+        if not AGENT_LOG_BUFFER:
+            html = '<div class="log-empty">Waiting for agent output...<span class="log-cursor"></span></div>'
         return html
 
     def _render_raw_log(self):

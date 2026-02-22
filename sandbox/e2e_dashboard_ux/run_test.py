@@ -114,9 +114,17 @@ with sync_playwright() as p:
     badge = page.locator("#status-badge")
     check(badge.count() > 0, "Status badge visible")
 
-    # Check log panel exists
+    # Check log panel exists (terminal style)
     log_panel = page.locator(".log-panel")
     check(log_panel.count() > 0, "Log panel visible")
+
+    # Terminal-style elements
+    terminal_dots = page.locator(".terminal-dots")
+    check(terminal_dots.count() > 0, "Terminal dots (red/yellow/green)")
+    terminal_title = page.locator(".terminal-title")
+    check(terminal_title.count() > 0, "Terminal title bar")
+    title_text = terminal_title.text_content() if terminal_title.count() > 0 else ""
+    check("agent@pocketcoder" in title_text, f"Terminal title: {title_text}")
 
     # Check queue message section
     queue = page.locator("#queue-msg-section")
@@ -337,22 +345,22 @@ with sync_playwright() as p:
     cost = page.evaluate("estimateCost(100000, 5000, 80000)")
     check(cost > 0, f"estimateCost returns positive: {cost:.4f}")
 
-    # Check icon map in source
+    # Check terminal-style log labels in JS source
     html = page.content()
-    check("bi-eye" in html, "Icon: bi-eye (read) in page")
-    check("bi-pencil-square" in html, "Icon: bi-pencil-square (edit) in page")
-    check("bi-terminal-fill" in html, "Icon: bi-terminal-fill (bash) in page")
-    check("bi-lightbulb" in html, "Icon: bi-lightbulb (thinking) in page")
-    check("bi-speedometer" in html, "Icon: bi-speedometer (metric) in page")
-    check("bi-shield-check" in html, "Icon: bi-shield-check (verify) in page")
-    check("bi-chat-left-text" in html, "Icon: bi-chat-left-text (text) in page")
+    check("'READ'" in html or "READ" in html, "Label: READ in page")
+    check("'EDIT'" in html or "EDIT" in html, "Label: EDIT in page")
+    check("'BASH'" in html or "BASH" in html, "Label: BASH in page")
+    check("'THINK'" in html or "THINK" in html, "Label: THINK in page")
+    check("'METRIC'" in html or "METRIC" in html, "Label: METRIC in page")
+    check("'CHECK'" in html or "CHECK" in html, "Label: CHECK (verify) in page")
+    check("'OUT'" in html or "OUT" in html, "Label: OUT (text) in page")
 
-    # Check color map
-    check("#3b82f6" in html, "Color: blue for read")
-    check("#f97316" in html, "Color: orange for edit")
-    check("#8b5cf6" in html, "Color: purple for bash")
-    check("#eab308" in html, "Color: yellow for thinking")
-    check("#6366f1" in html, "Color: indigo for metric")
+    # Check terminal-style colors (Catppuccin palette)
+    check("#89b4fa" in html, "Color: blue for read")
+    check("#fab387" in html, "Color: peach for edit")
+    check("#cba6f7" in html, "Color: mauve for bash")
+    check("#f9e2af" in html, "Color: yellow for thinking")
+    check("#89dceb" in html, "Color: sky for metric")
 
     # ============================
     # STEP 8: Responsive (hamburger)

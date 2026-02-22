@@ -3,11 +3,11 @@
 ## AFTER /clear — READ THIS FIRST!
 
 ```
-1. Read CLAUDE.md (this file) — project overview
-2. Read CURRENT_STAGE.md — cause-effect chains, bug status
+1. Read CLAUDE.md (this file) — project overview + module map
+2. Read CURRENT_STAGE.md — cause-effect chains, architecture, full manual
 3. Read .a1/checkpoint.json — current state
 4. Read .a1/tasks.json — task list
-5. Read TODO.md — detailed phases
+5. Read TODO.md — phases roadmap
 6. Continue work from checkpoint
 ```
 
@@ -15,49 +15,123 @@
 
 ## WHAT IS THIS
 
-**PocketCoder-A1** — autonomous coding agent that:
-- Works without human intervention
-- Saves state between sessions (checkpoint)
-- Auto-restarts when context fills up
-- Validates its work (tests, lint)
-- **Has autonomous vision-based QA tester** (screenshot → AI → action)
+**PocketCoder-A1** — autonomous coding agent (4882 lines Python, 13 modules):
+- Works without human intervention (Claude CLI subprocess)
+- Real-time dashboard with 6 metric cards, live logs, token tracking
+- Saves state between sessions (checkpoint + task priorities)
+- Post-session verification ("don't trust, verify" — 3-tier gate)
+- Anti-infinite-loop protection (baseline + max 3 retries)
+- Vision-based QA tester (screenshot → AI → action)
 
 ---
 
-## PROJECT STRUCTURE
+## MODULE MAP (13 modules, 4882 lines)
 
 ```
-pocketcoder-a1/
-├── a1/                      # Main code
-│   ├── __init__.py          # Version
-│   ├── checkpoint.py        # State between sessions
-│   ├── tasks.py             # Task management
-│   ├── validator.py         # Validation (tests, lint)
-│   ├── loop.py              # Session loop (Claude CLI/API/Ollama)
-│   ├── dashboard.py         # Web UI (full dashboard)
-│   ├── cli.py               # CLI commands
-│   └── tester/              # Vision-based QA agent
-│       ├── __init__.py
-│       ├── runner.py        # Main loop: screenshot → analyze → action
-│       ├── browser.py       # Playwright headless wrapper
-│       ├── analyzer.py      # Claude Vision analysis
-│       ├── scenarios.py     # 7 predefined test scenarios
-│       └── report.py        # HTML/JSON reports with screenshots
-│
-├── .a1/                     # Data (created on init)
-│   ├── checkpoint.json      # Current state
-│   ├── tasks.json           # Task list
-│   ├── sessions/            # Session logs
-│   ├── checkpoints/         # Checkpoint archive
-│   └── test-reports/        # Vision tester reports + screenshots
-│
-├── .mcp.json                # Playwright MCP config
-├── .venv/                   # Python virtual environment
-├── BACKLOG.md               # Full scope
-├── TODO.md                  # Detailed phases
-├── CURRENT_STAGE.md         # Current state with cause-effect chains
-├── CLAUDE.md                # This file
-└── pyproject.toml           # pip install
+a1/                          # 3795 lines — Main code
+├── __init__.py       (6)    # Version 0.1.0
+├── loop.py           (744)  # Brain: subprocess → stream-json → verify → metrics
+├── dashboard.py      (2038) # Web UI: 7 pages, 17 API, 6 cards, live logs
+├── validator.py      (361)  # Eyes: syntax, tests, lint, build, git, criteria
+├── cli.py            (289)  # CLI: pca init/task/start/status/ui/test/...
+├── tasks.py          (211)  # Tasks: CRUD, priority, reorder, criteria
+├── checkpoint.py     (146)  # State: session, status, metrics, decisions
+└── tester/           (1087) # Vision QA agent
+    ├── runner.py     (419)  # Main loop: scenario → steps → screenshot → analyze
+    ├── scenarios.py  (203)  # 7 test scenarios
+    ├── report.py     (193)  # HTML/JSON reports
+    ├── analyzer.py   (142)  # Claude Vision API
+    └── browser.py    (124)  # Playwright wrapper
+```
+
+### Module dependencies
+
+```
+cli.py ──────────┐
+                  ├──→ loop.py ──→ checkpoint.py
+dashboard.py ────┤               → tasks.py
+                  │               → validator.py
+                  └──→ tasks.py
+                  └──→ checkpoint.py
+```
+
+---
+
+## DATA DIRECTORY — .a1/
+
+```
+.a1/                           ← Created by `pca init`
+├── checkpoint.json            ← Session state (status, metrics, decisions)
+├── tasks.json                 ← Task list (id, title, priority, criteria)
+├── queue.json                 ← Message queue for agent (created on send)
+├── sessions/
+│   └── session_NNN.log        ← Raw agent output per session
+├── checkpoints/
+│   └── session_NNN.json       ← Checkpoint snapshots
+└── test-reports/
+    └── latest.html            ← Vision QA reports
+```
+
+### Data formats
+
+**checkpoint.json**:
+```json
+{
+  "status": "IDLE|WORKING|COMPLETED",
+  "session": 2,
+  "current_task": "task_003",
+  "files_modified": ["src/health.ts"],
+  "decisions": ["Combined tasks 1+2"],
+  "session_metrics": {
+    "tokens_in": 12400, "tokens_out": 3200,
+    "cache_read": 8000, "cache_creation": 1500,
+    "tools_used": 58, "session_duration": 166
+  }
+}
+```
+
+**tasks.json**:
+```json
+{
+  "tasks": [{
+    "id": "task_001",
+    "title": "Add health endpoint",
+    "description": "Create /api/health...",
+    "status": "pending|in_progress|done",
+    "priority": 1,
+    "success_criteria": "pytest passes",
+    "phase": "2.1"
+  }],
+  "next_id": 2
+}
+```
+
+---
+
+## CONFIG — .claude/
+
+```
+.claude/
+└── settings.local.json    ← MCP server config
+```
+
+```json
+{
+  "enabledMcpjsonServers": ["playwright"],
+  "enableAllProjectMcpServers": true
+}
+```
+
+Also `.mcp.json` in project root — Playwright MCP for browser automation:
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@anthropic/mcp-server-playwright"]
+    }
+  }
+}
 ```
 
 ---
@@ -65,47 +139,71 @@ pocketcoder-a1/
 ## CLI COMMANDS
 
 ```bash
-pca init <dir>           # Initialize project
-pca task add "..."       # Add task
-pca think "..."          # Add raw thought
-pca tasks                # Show all tasks
-pca start                # Start autonomous work
-pca status               # Current status
-pca validate             # Run validation
-pca ui                   # Web dashboard
-pca log                  # Session history
-pca test                 # Run vision-based QA tests (all 7 scenarios)
-pca test -s 1            # Run specific scenario
-pca test --web-only      # Web tests only
-pca test --no-vision     # Without AI vision analysis
+pca init <dir>                   # Create .a1/ directory
+pca task add "title"             # Add task
+pca think "raw thought"          # Add thought (for transform)
+pca tasks                        # Show all tasks with priorities
+pca start                        # Start autonomous work (Claude Max)
+pca start --provider claude-api  # With Claude API
+pca start --provider ollama      # With local model
+pca status                       # Current checkpoint status
+pca validate                     # Run all validation checks
+pca ui                           # Launch web dashboard (:7331)
+pca ui --no-browser              # Without opening browser
+pca ui -d /path/to/project       # For specific project
+pca log                          # Session history
+pca test                         # Run all 7 vision QA tests
+pca test -s 1                    # Run specific scenario
+pca test --no-vision             # Without AI vision analysis
 ```
 
 ---
 
-## VISION TESTER
+## DASHBOARD (7 pages, 17 API endpoints)
 
-Autonomous QA agent that tests the dashboard visually:
+| Page | URL | What |
+|------|-----|------|
+| Dashboard | `/` | 6 cards, Start/Stop, live log |
+| Tasks | `/tasks` | List + DnD + detail view |
+| Sessions | `/sessions` | Session history |
+| Log | `/log` | Activity timeline |
+| Settings | `/settings` | Config (read-only) |
+| Commits | `/commits` | Git history |
+| Transform | `/transform` | Text → tasks via AI |
 
-```
-Screenshot → Claude Vision analyzes → Decides action → Executes → Screenshot → ...
-```
+### 6 Metric Cards
+| Card | Data | Source |
+|------|------|--------|
+| Tasks | `2/5 done` + progress bar | tasks.get_progress() |
+| Session | `#3` + status badge | checkpoint.session |
+| Tokens | `12.4K in / 3.2K out` | rate_limit_event metrics |
+| Cost | `$0.08` per session | calculated from tokens |
+| Duration | `48s` (live timer) | JS tickTimer() |
+| Files | `3 modified` | checkpoint.files_modified |
 
-### 7 Test Scenarios:
-1. Dashboard loads — page renders, all cards visible
-2. Add task via web — form submit, task appears
-3. Add thought — thought form works
-4. Navigation — all 6 pages load correctly
-5. Theme toggle — dark/light switch
-6. Start/Stop agent — controls work
-7. API endpoint — /api/status returns valid JSON
+### 8 Log Icon Types
+| Type | Color | When |
+|------|-------|------|
+| read | blue | Claude reads file |
+| edit | orange | Claude edits file |
+| write | green | Claude creates file |
+| bash | purple | Claude runs command |
+| thinking | yellow | Claude thinks |
+| text | gray | Text output |
+| metric | indigo | Metrics update |
+| verify | green | Verification result |
 
-### How to run:
-```bash
-source .venv/bin/activate
-pca ui --no-browser &     # Start dashboard
-pca test --no-vision      # Run all tests
-# Reports: .a1/test-reports/latest.html
-```
+### Key API
+| Method | Endpoint | What |
+|--------|----------|------|
+| GET | `/api/status` | Full status JSON (checkpoint + tasks + metrics) |
+| GET | `/api/log?since=N` | Agent log entries from index N |
+| POST | `/start` | Start agent |
+| POST | `/stop` | Stop agent |
+| POST | `/add-task` | Add task (form) |
+| POST | `/queue-message` | Message to running agent |
+| POST | `/api/reorder` | Reorder tasks (JSON) |
+| POST | `/transform` | AI text→tasks |
 
 ---
 
@@ -113,146 +211,141 @@ pca test --no-vision      # Run all tests
 
 ```
 1. SESSION START
-   └── Read checkpoint.json
-   └── Read tasks.json
-   └── Identify current task
+   └── _capture_baseline() → snapshot validation BEFORE work
+   └── Read checkpoint.json + tasks.json
+   └── build_prompt() → checkpoint + tasks + queue + verification errors
 
-2. WORK
-   └── Take pending/in_progress task
-   └── Execute subtasks
-   └── Validate after each change
+2. WORK (Claude subprocess)
+   └── claude -p prompt --stream-json --verbose --dangerously-skip-permissions
+   └── Real-time: _parse_stream_event() → log + metrics
+   └── env.pop("CLAUDECODE") → prevent nested session crash
 
-3. VALIDATION
-   └── python -m py_compile (syntax)
-   └── pytest (tests)
-   └── ruff check (lint)
-   └── If FAIL → fix
-   └── If OK → commit
+3. VERIFICATION (after each session)
+   └── _verify_session()
+       ├── BLOCKING: syntax, tests, files_exist, success_criteria
+       ├── WARNING: lint, build, git
+       └── ANTI-LOOP: baseline comparison, max 3 retries, force_accept
+   └── PASS → accept COMPLETED → stop
+   └── FAIL → reset to WORKING → inject errors into next prompt → retry
 
-4. CONTEXT MONITORING
-   └── Check /tokens every 10-15 min
-   └── At 70%+ → save checkpoint → exit
-
-5. CHECKPOINT FORMAT
-   └── What was done
-   └── Which files changed
-   └── What decisions were made
-   └── What to do next
+4. METRICS
+   └── rate_limit_event → tokens_in/out/cache → session_metrics
+   └── /api/status → dashboard cards (Tokens, Cost, Duration)
 ```
 
 ---
 
-## POST-SESSION VERIFICATION
-
-After each session, loop.py automatically verifies the agent's work:
+## VERIFICATION SYSTEM — "DON'T TRUST, VERIFY"
 
 ```
 Agent says "COMPLETED"
-  └── _verify_session() runs
-      ├── BLOCKING (must pass): syntax, tests, files_modified exist, success_criteria
-      ├── WARNING (log only): lint, build, git status
-      └── Anti-infinite-loop: baseline comparison, max 3 retries, force_accept
+  └── _verify_session()
+      ├── TIER 1 BLOCKING (must pass):
+      │   ├── syntax: py_compile all .py
+      │   ├── tests: pytest
+      │   ├── files_exist: checkpoint files on disk?
+      │   └── success_criteria: heuristic check
+      │
+      ├── TIER 2 WARNING (log only):
+      │   ├── lint: ruff
+      │   ├── build: python -m build / npm run build
+      │   └── git: diff + status (if .git exists)
+      │
+      └── TIER 3 ANTI-LOOP:
+          ├── Baseline: pre-existing issues don't count
+          ├── Max 3 retries → force_accept
+          └── Prompt injection: errors → next session prompt
 ```
 
-**Key methods (a1/loop.py)**:
-- `_capture_baseline()` — snapshot validation state before first session
-- `_is_new_issue()` — only NEW failures count (pre-existing issues skipped)
-- `_verify_session()` — runs all checks, returns `{passed, blocking_issues, warnings, retry_count}`
-- `_get_verification_prompt()` — injects failure details into next session prompt
-
-**Validation methods (a1/validator.py)**:
-- `run_all()` — syntax + tests + lint + build + git (optional)
-- `has_git()` / `_check_git()` — git detection, works without git
-- `check_files_exist(paths)` — verify files on disk
-- `check_criteria(criteria)` — heuristic: "tests pass" → pytest, "file X exists" → os.path.exists
-
-**Constants**: `BLOCKING_CHECKS = {syntax, tests}`, `WARNING_CHECKS = {lint, build, git}`, `MAX_VERIFY_RETRIES = 3`
-
 ---
 
-## BUGS FIXED (11, 2026-02-21)
+## CLAUDE CLI SUBPROCESS (reference)
 
-1. **loop.py** — Claude CLI args: `["claude", prompt]` → `["claude", "-p", prompt]`
-2. **loop.py** — Added output capture to session logs
-3. **loop.py** — Nested sessions: unset `CLAUDECODE` env var
-4. **loop.py** — Permissions: `--dangerously-skip-permissions` for autonomous mode
-5. **dashboard.py** — Stop button now connected to `loop.stop()`
-6. **dashboard.py** — XSS fixed with `html.escape()` on all user inputs
-7. **checkpoint.py** — decisions[] limited to last 20 entries
-8. **loop.py** — signal.signal() in non-main thread: added threading check
-9. **loop.py** — `--output-format stream-json` requires `--verbose` with `-p`
-10. **loop.py** — Parser: tool_use comes inside assistant content[], not content_block_start
-11. **loop.py** — f-string nested quotes in `_capture_baseline()`: extracted to variable
-
----
-
-## CLAUDE CLI REFERENCE (for subprocess calls)
-
-### Correct way to call claude from Python (with stream-json):
 ```python
-import os, subprocess
+import os, subprocess, json
 
-# MUST unset CLAUDECODE or nested sessions will be blocked
 env = os.environ.copy()
-env.pop("CLAUDECODE", None)
+env.pop("CLAUDECODE", None)  # CRITICAL: prevent nested session crash
 
 proc = subprocess.Popen(
-    [
-        "claude",
-        "-p", prompt,                       # Non-interactive mode (REQUIRED)
-        "--dangerously-skip-permissions",    # Auto-approve file writes
-        "--no-session-persistence",          # Don't save session to disk
-        "--max-turns", "25",                 # Limit agentic turns
-        "--verbose",                         # REQUIRED for stream-json with -p
-        "--output-format", "stream-json",    # Real-time NDJSON streaming
-    ],
+    ["claude", "-p", prompt,
+     "--dangerously-skip-permissions",
+     "--no-session-persistence",
+     "--max-turns", "25",
+     "--verbose",
+     "--output-format", "stream-json"],
     cwd=str(project_dir),
-    env=env,                                # Clean env without CLAUDECODE
+    env=env,
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
-    bufsize=1,                              # Line-buffered for real-time
+    bufsize=1,
 )
 
-# Read output line by line (NDJSON — one JSON object per line)
 while True:
     line = proc.stdout.readline()
     if not line and proc.poll() is not None:
         break
     if line:
         event = json.loads(line)
-        # event["type"] is: "system", "assistant", "user", "result", "rate_limit_event"
-        # assistant content blocks: "text", "tool_use", "thinking"
-        print(line, end="")
+        # event["type"]: "system", "assistant", "user", "result", "rate_limit_event"
 ```
 
-### Key flags:
-| Flag | What it does |
-|------|-------------|
-| `-p "prompt"` | Non-interactive mode (print and exit) |
-| `--dangerously-skip-permissions` | Auto-approve all tool calls |
-| `--no-session-persistence` | Don't clutter session history |
+### Stream-JSON events:
+```
+assistant + tool_use  → agent reads/edits/writes/runs command
+assistant + text      → agent text output
+assistant + thinking  → agent thinking
+rate_limit_event      → token usage (input/output/cache)
+result                → final answer
+system, user          → skip
+```
+
+### Critical flags:
+| Flag | Why |
+|------|-----|
+| `-p prompt` | Non-interactive mode |
+| `--dangerously-skip-permissions` | Auto-approve tools |
 | `--verbose` | Required for stream-json with -p |
-| `--output-format stream-json` | Real-time NDJSON streaming (each event = 1 line) |
-| `--output-format json` | Single JSON result (no streaming) |
-| `--max-turns 25` | Limit agentic turns |
-| `--allowedTools "Bash,Read,Edit"` | Only allow specific tools |
+| `--output-format stream-json` | Real-time NDJSON |
+| `--max-turns 25` | Prevent infinite work |
+| `--no-session-persistence` | Don't save to history |
 
-### Stream-JSON event format:
-```
-{"type":"system","subtype":"init",...}                          — skip
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{...}}]}} — tool call
-{"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}  — text output
-{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"..."}]}} — thinking
-{"type":"user","message":{"content":[{"type":"tool_result",...}]}}  — skip
-{"type":"result","result":"..."}                                — final result
-{"type":"rate_limit_event",...}                                  — skip
-```
+### CLAUDECODE env var:
+Claude Code sets `CLAUDECODE=1`. Nested `claude` calls crash with "cannot launch inside another session". **Fix**: `env.pop("CLAUDECODE", None)` before subprocess.
 
-### Critical: CLAUDECODE env var
-- Claude Code sets `CLAUDECODE=1` in its shell environment
-- Nested `claude` calls fail with "cannot be launched inside another session"
-- **Fix:** `env.pop("CLAUDECODE", None)` before subprocess
+---
+
+## BUGS FIXED (13)
+
+| # | File | Bug → Fix |
+|---|------|-----------|
+| 1 | loop.py | CLI args `["claude", prompt]` → added `-p` flag |
+| 2 | loop.py | No output capture → `stdout=subprocess.PIPE` |
+| 3 | loop.py | Nested session crash → `env.pop("CLAUDECODE")` |
+| 4 | loop.py | No auto-permissions → `--dangerously-skip-permissions` |
+| 5 | loop.py | No max-turns → `--max-turns 25` |
+| 6 | loop.py | signal in thread → `threading.current_thread()` check |
+| 7 | loop.py | Agent didn't know file formats → HOW TO UPDATE in prompt |
+| 8 | dashboard.py | XSS + stop broken → `html.escape()` + `loop.stop()` |
+| 9 | loop.py | stream-json error → added `--verbose` |
+| 10 | loop.py | Parser wrong event format → tool_use in assistant content[] |
+| 11 | loop.py | f-string nested quotes → extracted to variable |
+| 12 | validator.py | Case-sensitive criteria → re-match on original string |
+| 13 | dashboard.py | `$` in JS Template → escaped as `$$` |
+
+---
+
+## E2E TESTS (6/6 PASSED)
+
+| # | What | Tasks | Checks | Time |
+|---|------|-------|--------|------|
+| 1 | Basic cycle | 3/3 | 10 SS | 90s |
+| 2 | Real project (epotos) | 3/3 | 36 SS | 150s |
+| 3 | Stream-JSON verify | 1/1 | 23 logs | 60s |
+| 4 | Verification system | 4/4 | 23 tests | 48s |
+| 5 | Dashboard UX | — | 77/77 | — |
+| 6 | Full cycle (web→agent→done) | 3/3 | 22/22 | 165s |
 
 ---
 
@@ -268,33 +361,22 @@ while True:
 
 ## CURRENT STATUS
 
-**Version:** 0.1.0 (MVP + Vision Tester)
+**Version**: 0.1.0
+**Code**: 4882 lines, 13 Python modules
+**Dashboard**: 7 pages, 17 API endpoints, 12 features
 
 **Done:**
-- [x] Project structure
-- [x] checkpoint.py (+ decisions limit fix)
-- [x] tasks.py
-- [x] validator.py
-- [x] loop.py (+ Claude CLI fix + output capture)
-- [x] cli.py (+ `pca test` command)
-- [x] dashboard.py (+ XSS fix + stop fix)
-- [x] Vision Tester (7/7 scenarios pass)
-- [x] Playwright MCP integration
-- [x] CURRENT_STAGE.md with cause-effect chains
-
-**Done (2026-02-21 continued):**
-- [x] Nested claude sessions fix (CLAUDECODE env var)
-- [x] Auto-permissions (--dangerously-skip-permissions)
-- [x] Full sandbox test on epotos-templates
-- [x] A1 agent autonomously created 450-line provider.ts (DeepSeek + Ollama)
-- [x] 20 dashboard screenshots documenting full web flow
-- [x] Claude CLI reference docs in CLAUDE.md
-- [x] Stream-JSON live logs (real-time NDJSON parsing, 6 icon types)
-- [x] Post-session verification (3-tier: blocking/warning/anti-loop)
-- [x] Git-optional validation (works with and without git)
-- [x] Success criteria checking (heuristic parser in validator.py)
-- [x] Anti-infinite-loop protection (baseline + max 3 retries + force_accept)
+- [x] Core: checkpoint, tasks, validator, loop, CLI
+- [x] Dashboard: 7 pages, 17 API, 6 cards, live logs, DnD, transform
+- [x] Stream-JSON: NDJSON parsing, 8 icon types, real-time
+- [x] Verification: 3-tier gate, anti-loop, baseline
+- [x] Token metrics: rate_limit_event → cards
+- [x] Vision QA: 7 scenarios, Playwright
+- [x] E2E: 6 tests passed
+- [x] 13 bugs fixed
 
 **In Progress:**
-- [ ] E2E test of verification system (Task #14)
-- See TODO.md and .a1/tasks.json
+- [ ] Context monitoring (auto-checkpoint at 70%)
+- [ ] Git integration (auto-branch, atomic commits)
+
+**Next:** See TODO.md and .a1/tasks.json

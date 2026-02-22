@@ -32,122 +32,16 @@
       "priority": 3
     },
     {
-      "id": "task_004",
-      "title": "Claude API Provider",
-      "description": "anthropic SDK, streaming, token counting, error handling",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "3.1",
-      "success_criteria": "pca start --provider claude-api работает",
-      "priority": 4
-    },
-    {
-      "id": "task_005",
-      "title": "Ollama Provider",
-      "description": "Локальные модели, model selection, context size",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "3.2",
-      "success_criteria": "pca start --provider ollama работает",
-      "priority": 5
-    },
-    {
-      "id": "task_006",
-      "title": "Smart Model Router",
-      "description": "Классификация задач, выбор модели, presets",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "4.1",
-      "success_criteria": "Router выбирает модель по типу задачи",
-      "priority": 6
-    },
-    {
-      "id": "task_007",
-      "title": "Transform: мысли -> задачи",
-      "description": "LLM превращает raw_thoughts в структурированные задачи",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "4.2",
-      "success_criteria": "pca transform работает",
-      "priority": 7
-    },
-    {
-      "id": "task_008",
-      "title": "Unit Tests",
-      "description": "Тесты для checkpoint, tasks, validator, loop",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "5.1",
-      "success_criteria": "pytest coverage > 80%",
-      "priority": 8
-    },
-    {
-      "id": "task_009",
-      "title": "Research: XML + Context Window",
-      "description": "Как XML влияет на контекст, оптимальные форматы",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "research",
-      "success_criteria": "Документ с результатами",
-      "priority": 9
-    },
-    {
-      "id": "task_010",
-      "title": "Max Tokens Library",
-      "description": "Open source библиотека для определения max_tokens",
-      "status": "pending",
-      "created_at": "2026-02-16T15:00:00",
-      "phase": "4.3",
-      "success_criteria": "Работает как отдельный pip пакет",
-      "priority": 10
-    },
-    {
       "id": "task_011",
-      "title": "Dashboard UX/UI Upgrade",
-      "description": "6 metric cards, colored log icons, task detail view, live timer, responsive",
+      "title": "Dashboard UX/UI + CLI Terminal Log",
+      "description": "6 metric cards, terminal-style log panel, task detail view, live timer, responsive",
       "status": "done",
       "created_at": "2026-02-22T12:00:00",
       "completed_at": "2026-02-22T14:00:00",
       "phase": "2.0",
-      "success_criteria": "Dashboard shows 6 cards with token metrics, colored icons in log, expandable task details",
+      "success_criteria": "Terminal log with dots, colored labels, blinking cursor",
       "priority": 11
-    },
-    {
-      "id": "task_015",
-      "title": "E2E Test Task - Dashboard UX",
-      "description": "Test task added by Playwright E2E to verify form + backend",
-      "status": "pending",
-      "priority": 12,
-      "created_at": "2026-02-22T12:14:43.807894",
-      "completed_at": null,
-      "raw_thought": null,
-      "phase": null,
-      "success_criteria": null
-    },
-    {
-      "id": "task_016",
-      "title": "E2E Test Task - Dashboard UX",
-      "description": "Test task added by Playwright E2E to verify form + backend",
-      "status": "pending",
-      "priority": 13,
-      "created_at": "2026-02-22T12:18:11.899323",
-      "completed_at": null,
-      "raw_thought": null,
-      "phase": null,
-      "success_criteria": null
-    },
-    {
-      "id": "task_017",
-      "title": "E2E Test Task - Dashboard UX",
-      "description": "Test task added by Playwright E2E to verify form + backend",
-      "status": "pending",
-      "priority": 14,
-      "created_at": "2026-02-22T12:22:16.324049",
-      "completed_at": null,
-      "raw_thought": null,
-      "phase": null,
-      "success_criteria": null
     }
   ],
-  "next_id": 18
+  "next_id": 12
 }
