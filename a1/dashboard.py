@@ -60,7 +60,8 @@ def _classify_line(line: str) -> str:
 
 def _on_agent_line(line: str, event_type: str = None):
     """Parse agent output line and add to live buffer.
-    event_type: pre-classified type from stream-json parser (read/edit/write/bash/thinking/text)
+    event_type: pre-classified type from stream-json parser
+    (read/edit/write/bash/thinking/text/metric/verify)
     If not provided, falls back to heuristic classifier."""
     stripped = line.rstrip("\n")
     if not stripped:
@@ -220,7 +221,7 @@ body {
 /* Cards */
 .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
@@ -663,13 +664,125 @@ button:active { transform: scale(0.98); }
     opacity: 0.5;
 }
 
+/* Pulsing indicator for running state */
+.pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fff;
+    margin: 0 2px;
+    animation: pulse-anim 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-anim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* Live timer styling */
+.live-timer {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1200px) {
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     .layout {
         grid-template-columns: 1fr;
     }
     .sidebar {
-        display: none;
+        position: fixed;
+        left: -260px;
+        z-index: 100;
+        transition: left 0.3s;
+        width: 240px;
     }
+    .sidebar.open {
+        left: 0;
+    }
+    .hamburger {
+        display: block !important;
+    }
+    .cards {
+        grid-template-columns: 1fr;
+    }
+    .log-feed {
+        max-height: none;
+    }
+}
+
+.hamburger {
+    display: none;
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+/* Task detail expandable */
+.task-detail {
+    padding: 0 20px 16px 56px;
+    display: none;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.task-detail.open {
+    display: block;
+}
+
+.task-stages {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.stage-step {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg-tertiary);
+}
+
+.stage-step.active {
+    background: var(--warning);
+}
+
+.stage-step.done {
+    background: var(--success);
+}
+
+.task-detail-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.task-detail-meta dt {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.task-criteria {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.task-clickable {
+    cursor: pointer;
 }
 '''
 
@@ -727,6 +840,9 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
         </aside>
 
         <main class="main">
+            <button class="hamburger" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+                <i class="bi bi-list"></i>
+            </button>
             $content
         </main>
     </div>
@@ -758,6 +874,29 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
         const pageName = '$page_name';
         let logIndex = 0;
 
+        function fmtTokens(n) {
+            if (!n || n === 0) return '0';
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return n.toString();
+        }
+
+        function fmtDuration(s) {
+            if (!s || s <= 0) return '0s';
+            if (s < 60) return s + 's';
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return m + 'm ' + sec + 's';
+        }
+
+        function estimateCost(tokensIn, tokensOut, cacheRead) {
+            // Claude Opus pricing (approximate): 15/M input, 75/M output, 1.5/M cache read
+            const costIn = (tokensIn - (cacheRead || 0)) * 15 / 1000000;
+            const costCache = (cacheRead || 0) * 1.5 / 1000000;
+            const costOut = tokensOut * 75 / 1000000;
+            return Math.max(0, costIn + costCache + costOut);
+        }
+
         function updateStatus() {
             fetch('/api/status')
                 .then(r => r.json())
@@ -766,7 +905,7 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                     if (badge) {
                         if (data.running) {
                             badge.className = 'status status-running';
-                            badge.innerHTML = '<i class="bi bi-play-circle-fill"></i> Running';
+                            badge.innerHTML = '<i class="bi bi-play-circle-fill"></i> <span class="pulse-dot"></span> Running';
                         } else if (data.checkpoint && data.checkpoint.status === 'COMPLETED') {
                             badge.className = 'status status-completed';
                             badge.innerHTML = '<i class="bi bi-check-circle-fill"></i> Completed';
@@ -787,6 +926,43 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                     if (fc && data.checkpoint) {
                         fc.textContent = (data.checkpoint.files_modified || []).length;
                     }
+                    // Token metrics
+                    const m = data.metrics || {};
+                    const tokC = document.getElementById('tokens-count');
+                    if (tokC) {
+                        tokC.textContent = fmtTokens(m.tokens_in || 0) + ' / ' + fmtTokens(m.tokens_out || 0);
+                    }
+                    const tokSub = document.getElementById('tokens-sub');
+                    if (tokSub && m.cache_read) {
+                        tokSub.textContent = 'cache: ' + fmtTokens(m.cache_read);
+                    }
+                    const tokBar = document.getElementById('tokens-bar');
+                    if (tokBar) {
+                        const pct = Math.min(100, (m.context_percent || 0) * 100);
+                        tokBar.style.width = pct + '%';
+                        // Change color at threshold
+                        if (pct >= 70) tokBar.style.background = '#ef4444';
+                        else if (pct >= 50) tokBar.style.background = '#f59e0b';
+                        else tokBar.style.background = 'var(--accent)';
+                    }
+                    // Context percent text
+                    const ctxPct = document.getElementById('context-pct');
+                    if (ctxPct) {
+                        const pct = Math.round((m.context_percent || 0) * 100);
+                        ctxPct.textContent = pct + '%';
+                    }
+                    // Cost
+                    const costEl = document.getElementById('cost-value');
+                    if (costEl) {
+                        const cost = estimateCost(m.tokens_in || 0, m.tokens_out || 0, m.cache_read || 0);
+                        costEl.textContent = '$$' + cost.toFixed(3);
+                    }
+                    // Duration
+                    const durEl = document.getElementById('duration-value');
+                    if (durEl) {
+                        durEl.textContent = fmtDuration(m.session_duration || 0);
+                    }
+                    // Queue message section
                     const qms = document.getElementById('queue-msg-section');
                     if (qms) {
                         qms.style.display = data.running ? 'block' : 'none';
@@ -804,9 +980,11 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                         const rawlog = document.getElementById('raw-log');
                         if (feed && rawlog) {
                             data.entries.forEach(e => {
-                                const iconMap = {read:'bi-book', edit:'bi-pencil', write:'bi-file-earmark-plus', bash:'bi-terminal', thinking:'bi-chat-dots', text:'bi-text-paragraph'};
+                                const iconMap = {read:'bi-eye', edit:'bi-pencil-square', write:'bi-file-earmark-plus', bash:'bi-terminal-fill', thinking:'bi-lightbulb', text:'bi-chat-left-text', metric:'bi-speedometer', verify:'bi-shield-check'};
+                                const colorMap = {read:'#3b82f6', edit:'#f97316', write:'#10b981', bash:'#8b5cf6', thinking:'#eab308', text:'#6b7280', metric:'#6366f1', verify:'#10b981'};
                                 const icon = iconMap[e.type] || 'bi-dot';
-                                feed.innerHTML += '<div class="log-entry"><i class="bi ' + icon + '"></i><span class="log-time">' + e.time + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
+                                const color = colorMap[e.type] || 'var(--accent)';
+                                feed.innerHTML += '<div class="log-entry"><i class="bi ' + icon + '" style="color:' + color + '"></i><span class="log-time">' + e.time + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
                                 rawlog.textContent += e.line + '\\n';
                             });
                             feed.scrollTop = feed.scrollHeight;
@@ -833,9 +1011,43 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
             }).catch(() => { status.textContent = 'Failed to send'; });
         }
 
+        // Live timer tick (updates every second when running)
+        let sessionStartTime = 0;
+        let agentRunning = false;
+
+        function tickTimer() {
+            if (!agentRunning || !sessionStartTime) return;
+            const elapsed = Math.floor(Date.now() / 1000 - sessionStartTime);
+            const durEl = document.getElementById('duration-value');
+            if (durEl) durEl.textContent = fmtDuration(elapsed);
+        }
+
+        // Toggle task detail on tasks page
+        function toggleTaskDetail(taskId) {
+            const el = document.getElementById('detail-' + taskId);
+            if (el) el.classList.toggle('open');
+        }
+
         if (pageName === 'dashboard') {
+            // Wrap updateStatus to also track timer state
+            const _origUpdateStatus = updateStatus;
+            updateStatus = function() {
+                fetch('/api/status')
+                    .then(r => r.json())
+                    .then(data => {
+                        agentRunning = data.running;
+                        if (data.metrics && data.metrics.session_start) {
+                            sessionStartTime = data.metrics.session_start;
+                        }
+                    }).catch(() => {});
+                _origUpdateStatus();
+            };
             setInterval(updateStatus, 3000);
             setInterval(updateLog, 2000);
+            setInterval(tickTimer, 1000);
+            updateStatus();
+        } else if (pageName === 'tasks') {
+            // No auto-reload on tasks page (drag-drop needs stable DOM)
         } else {
             setTimeout(() => location.reload(), 5000);
         }
@@ -1165,9 +1377,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 <div class="card-sub">{cp.get('status', 'Not started')}</div>
             </div>
             <div class="card">
-                <div class="card-title"><i class="bi bi-clock"></i> Context</div>
-                <div class="card-value">{cp.get('context_percent', 0)}%</div>
-                <div class="card-sub">used</div>
+                <div class="card-title"><i class="bi bi-lightning-charge" style="color:#f59e0b"></i> Tokens</div>
+                <div class="card-value" id="tokens-count" style="font-size:22px">0 / 0</div>
+                <div class="card-sub" id="tokens-sub">in / out</div>
+                <div class="progress">
+                    <div class="progress-fill" id="tokens-bar" style="width: 0%"></div>
+                </div>
+                <div class="card-sub" style="margin-top:4px">Context: <strong id="context-pct">0%</strong> <span style="color:var(--muted);font-size:11px">(auto-save at 70%)</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title"><i class="bi bi-currency-dollar" style="color:#10b981"></i> Cost</div>
+                <div class="card-value" id="cost-value" style="font-size:22px">$$0.00</div>
+                <div class="card-sub">this session</div>
+            </div>
+            <div class="card">
+                <div class="card-title"><i class="bi bi-stopwatch" style="color:#6366f1"></i> Duration</div>
+                <div class="card-value" id="duration-value">0s</div>
+                <div class="card-sub" id="duration-sub">current session</div>
             </div>
             <div class="card">
                 <div class="card-title"><i class="bi bi-file-earmark-code"></i> Files</div>
@@ -1254,14 +1480,45 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
             draggable = 'draggable="true"' if t.status != 'done' else ''
 
+            # Stage progress bar
+            stage_steps = ''
+            if t.status == 'done':
+                stage_steps = '<div class="stage-step done"></div><div class="stage-step done"></div><div class="stage-step done"></div>'
+            elif t.status == 'in_progress':
+                stage_steps = '<div class="stage-step done"></div><div class="stage-step active"></div><div class="stage-step"></div>'
+            else:
+                stage_steps = '<div class="stage-step"></div><div class="stage-step"></div><div class="stage-step"></div>'
+
+            # Task detail metadata
+            phase_text = getattr(t, 'phase', '') or ''
+            criteria = getattr(t, 'success_criteria', '') or ''
+            created = getattr(t, 'created_at', '') or ''
+            completed = getattr(t, 'completed_at', '') or ''
+
+            detail_html = f'''
+            <div class="task-detail" id="detail-{t.id}">
+                <div class="task-stages">{stage_steps}</div>
+                <div class="task-detail-meta">
+                    <div><dt>Status</dt><dd>{esc(t.status)}</dd></div>
+                    <div><dt>Phase</dt><dd>{esc(phase_text) if phase_text else 'N/A'}</dd></div>
+                    <div><dt>Created</dt><dd>{esc(created[:10]) if created else 'N/A'}</dd></div>
+                    <div><dt>Completed</dt><dd>{esc(completed[:10]) if completed else '—'}</dd></div>
+                </div>
+                {f'<div class="task-criteria"><strong>Criteria:</strong> {esc(criteria)}</div>' if criteria else ''}
+                {f'<div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">{esc(desc)}</div>' if desc else ''}
+            </div>
+            '''
+
             tasks_html += f'''
-            <div class="task" {draggable} data-task-id="{t.id}">
+            <div class="task task-clickable" {draggable} data-task-id="{t.id}" onclick="toggleTaskDetail('{t.id}')">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
-                    <div class="task-meta">{esc(t.id)} {pri_badge} {(' - ' + esc(desc)) if desc else ''}</div>
+                    <div class="task-meta">{esc(t.id)} {pri_badge}</div>
                 </div>
+                <i class="bi bi-chevron-down" style="color:var(--text-secondary);font-size:14px"></i>
             </div>
+            {detail_html}
             '''
 
         thoughts_html = ''
@@ -1625,12 +1882,22 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
         checkpoint = CheckpointManager(PROJECT_DIR)
         tasks = TaskManager(PROJECT_DIR)
 
+        # Get live metrics from agent loop if running
+        metrics = {}
+        if AGENT_LOOP and hasattr(AGENT_LOOP, 'get_session_metrics'):
+            metrics = AGENT_LOOP.get_session_metrics()
+        else:
+            # Try to load from checkpoint
+            cp = checkpoint.load()
+            metrics = cp.get('session_metrics', {})
+
         data = {
             'checkpoint': checkpoint.load(),
             'tasks': [t.to_dict() for t in tasks.get_tasks()],
             'progress': tasks.get_progress(),
             'running': AGENT_RUNNING,
             'activity': ACTIVITY_LOG[-10:],
+            'metrics': metrics,
         }
 
         self.send_response(200)
@@ -1659,13 +1926,21 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
     def _render_log_entries(self):
         """Render existing log buffer entries as HTML for initial page load"""
         icon_map = {
-            'read': 'bi-book', 'edit': 'bi-pencil', 'write': 'bi-file-earmark-plus',
-            'bash': 'bi-terminal', 'thinking': 'bi-chat-dots', 'text': 'bi-text-paragraph',
+            'read': 'bi-eye', 'edit': 'bi-pencil-square', 'write': 'bi-file-earmark-plus',
+            'bash': 'bi-terminal-fill', 'thinking': 'bi-lightbulb', 'text': 'bi-chat-left-text',
+            'metric': 'bi-speedometer', 'verify': 'bi-shield-check',
+        }
+        color_map = {
+            'read': '#3b82f6', 'edit': '#f97316', 'write': '#10b981',
+            'bash': '#8b5cf6', 'thinking': '#eab308', 'text': '#6b7280',
+            'metric': '#6366f1', 'verify': '#10b981',
         }
         html = ''
         for e in AGENT_LOG_BUFFER[-50:]:
-            icon = icon_map.get(e.get('type', 'text'), 'bi-dot')
-            html += f'<div class="log-entry"><i class="bi {icon}"></i><span class="log-time">{esc(e["time"])}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
+            etype = e.get('type', 'text')
+            icon = icon_map.get(etype, 'bi-dot')
+            color = color_map.get(etype, 'var(--accent)')
+            html += f'<div class="log-entry"><i class="bi {icon}" style="color:{color}"></i><span class="log-time">{esc(e["time"])}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
         return html
 
     def _render_raw_log(self):

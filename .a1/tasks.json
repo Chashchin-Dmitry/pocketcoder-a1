@@ -1,23 +1,15 @@
 {
-  "raw_thoughts": [
-    {
-      "text": "We should add dark mode tests",
-      "added_at": "2026-02-21T11:17:37.400743"
-    },
-    {
-      "text": "E2E thought 1771672687",
-      "added_at": "2026-02-21T11:18:07.499941"
-    }
-  ],
+  "raw_thoughts": [],
   "tasks": [
     {
       "id": "task_001",
       "title": "Мониторинг контекста в Session Loop",
       "description": "Парсить /tokens, определять процент, авто-checkpoint при 70%",
-      "status": "pending",
+      "status": "in_progress",
       "created_at": "2026-02-16T15:00:00",
       "phase": "2.1",
-      "success_criteria": "Запустить 5 сессий, checkpoint создаётся при 70%"
+      "success_criteria": "Запустить 5 сессий, checkpoint создаётся при 70%",
+      "priority": 1
     },
     {
       "id": "task_002",
@@ -26,7 +18,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "2.2",
-      "success_criteria": "pca start создаёт ветку и коммиты"
+      "success_criteria": "pca start создаёт ветку и коммиты",
+      "priority": 2
     },
     {
       "id": "task_003",
@@ -35,7 +28,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "2.3",
-      "success_criteria": "Ctrl+C - всё сохраняется корректно"
+      "success_criteria": "Ctrl+C - всё сохраняется корректно",
+      "priority": 3
     },
     {
       "id": "task_004",
@@ -44,7 +38,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "3.1",
-      "success_criteria": "pca start --provider claude-api работает"
+      "success_criteria": "pca start --provider claude-api работает",
+      "priority": 4
     },
     {
       "id": "task_005",
@@ -53,7 +48,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "3.2",
-      "success_criteria": "pca start --provider ollama работает"
+      "success_criteria": "pca start --provider ollama работает",
+      "priority": 5
     },
     {
       "id": "task_006",
@@ -62,7 +58,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "4.1",
-      "success_criteria": "Router выбирает модель по типу задачи"
+      "success_criteria": "Router выбирает модель по типу задачи",
+      "priority": 6
     },
     {
       "id": "task_007",
@@ -71,7 +68,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "4.2",
-      "success_criteria": "pca transform работает"
+      "success_criteria": "pca transform работает",
+      "priority": 7
     },
     {
       "id": "task_008",
@@ -80,7 +78,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "5.1",
-      "success_criteria": "pytest coverage > 80%"
+      "success_criteria": "pytest coverage > 80%",
+      "priority": 8
     },
     {
       "id": "task_009",
@@ -89,7 +88,8 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "research",
-      "success_criteria": "Документ с результатами"
+      "success_criteria": "Документ с результатами",
+      "priority": 9
     },
     {
       "id": "task_010",
@@ -98,41 +98,56 @@
       "status": "pending",
       "created_at": "2026-02-16T15:00:00",
       "phase": "4.3",
-      "success_criteria": "Работает как отдельный pip пакет"
+      "success_criteria": "Работает как отдельный pip пакет",
+      "priority": 10
     },
     {
       "id": "task_011",
-      "title": "Test dashboard",
-      "description": "Testing via Playwright",
+      "title": "Dashboard UX/UI Upgrade",
+      "description": "6 metric cards, colored log icons, task detail view, live timer, responsive",
+      "status": "done",
+      "created_at": "2026-02-22T12:00:00",
+      "completed_at": "2026-02-22T14:00:00",
+      "phase": "2.0",
+      "success_criteria": "Dashboard shows 6 cards with token metrics, colored icons in log, expandable task details",
+      "priority": 11
+    },
+    {
+      "id": "task_015",
+      "title": "E2E Test Task - Dashboard UX",
+      "description": "Test task added by Playwright E2E to verify form + backend",
       "status": "pending",
-      "created_at": "2026-02-21T11:17:37.248923",
+      "priority": 12,
+      "created_at": "2026-02-22T12:14:43.807894",
       "completed_at": null,
       "raw_thought": null,
       "phase": null,
       "success_criteria": null
     },
     {
-      "id": "task_012",
-      "title": "Test API endpoints",
-      "description": "",
+      "id": "task_016",
+      "title": "E2E Test Task - Dashboard UX",
+      "description": "Test task added by Playwright E2E to verify form + backend",
       "status": "pending",
-      "created_at": "2026-02-21T11:17:37.325485",
+      "priority": 13,
+      "created_at": "2026-02-22T12:18:11.899323",
       "completed_at": null,
       "raw_thought": null,
       "phase": null,
       "success_criteria": null
     },
     {
-      "id": "task_013",
-      "title": "E2E test task 1771672685",
-      "description": "",
+      "id": "task_017",
+      "title": "E2E Test Task - Dashboard UX",
+      "description": "Test task added by Playwright E2E to verify form + backend",
       "status": "pending",
-      "created_at": "2026-02-21T11:18:05.650657",
+      "priority": 14,
+      "created_at": "2026-02-22T12:22:16.324049",
       "completed_at": null,
       "raw_thought": null,
       "phase": null,
       "success_criteria": null
     }
   ],
-  "next_id": 14
+  "next_id": 18
 }

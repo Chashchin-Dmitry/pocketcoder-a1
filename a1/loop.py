@@ -17,6 +17,11 @@ from .validator import Validator
 class SessionLoop:
     """Основной цикл автономной работы"""
 
+    # Context window size for Claude models (tokens)
+    CONTEXT_WINDOW_SIZE = 200_000
+    # Auto-checkpoint threshold (70% of context window)
+    CONTEXT_THRESHOLD = 0.70
+
     def __init__(
         self,
         project_dir: Path,
@@ -37,6 +42,18 @@ class SessionLoop:
         self._current_process: Optional[subprocess.Popen] = None
         self._log_callback = None  # Callback for live log streaming
         self._last_verification = None  # Last verification result
+        self._context_overflow = False  # Set when context >= threshold
+        self._context_percent = 0.0  # Current context usage (0.0 - 1.0)
+        self._session_metrics = {
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "cache_read": 0,
+            "cache_creation": 0,
+            "tools_used": 0,
+            "session_start": None,
+            "session_duration": 0,
+            "context_percent": 0.0,
+        }
         self._setup_signal_handlers()
 
     def _setup_signal_handlers(self):
@@ -58,6 +75,16 @@ class SessionLoop:
         self._running = False
         if self._current_process:
             self._current_process.terminate()
+
+    def get_session_metrics(self) -> dict:
+        """Return current session metrics for dashboard"""
+        metrics = dict(self._session_metrics)
+        # Live duration update
+        if metrics.get("session_start") and self._running:
+            metrics["session_duration"] = int(time.time() - metrics["session_start"])
+        metrics["context_percent"] = self._context_percent
+        metrics["context_overflow"] = self._context_overflow
+        return metrics
 
     def _classify_tool(self, tool_name: str, tool_input: dict):
         """Classify a tool_use block into (display_text, event_type)"""
@@ -99,7 +126,48 @@ class SessionLoop:
         etype = event.get("type", "")
 
         # Skip non-useful events
-        if etype in ("system", "user", "rate_limit_event"):
+        if etype in ("system", "user"):
+            return None, None
+
+        # Parse rate_limit_event for token metrics + context monitoring
+        if etype == "rate_limit_event":
+            usage = event.get("usage", {})
+            if usage:
+                self._session_metrics["tokens_in"] = usage.get("input_tokens", self._session_metrics["tokens_in"])
+                self._session_metrics["tokens_out"] = usage.get("output_tokens", self._session_metrics["tokens_out"])
+                self._session_metrics["cache_read"] = usage.get("cache_read_input_tokens", self._session_metrics["cache_read"])
+                self._session_metrics["cache_creation"] = usage.get("cache_creation_input_tokens", self._session_metrics["cache_creation"])
+
+                # Context monitoring: input_tokens = current context usage
+                input_tokens = self._session_metrics["tokens_in"]
+                self._context_percent = input_tokens / self.CONTEXT_WINDOW_SIZE
+                self._session_metrics["context_percent"] = self._context_percent
+
+                # Check threshold — trigger auto-checkpoint
+                if self._context_percent >= self.CONTEXT_THRESHOLD and not self._context_overflow:
+                    self._context_overflow = True
+                    pct = int(self._context_percent * 100)
+                    print(f"\n  [CONTEXT] {pct}% used ({input_tokens:,}/{self.CONTEXT_WINDOW_SIZE:,}) — threshold reached, saving checkpoint...")
+                    if self._log_callback:
+                        try:
+                            self._log_callback(
+                                f"[Context] {pct}% — threshold reached, ending session",
+                                "verify"
+                            )
+                        except Exception:
+                            pass
+
+                # Emit metric update to dashboard
+                if self._log_callback:
+                    total = self._session_metrics["tokens_in"] + self._session_metrics["tokens_out"]
+                    pct = int(self._context_percent * 100)
+                    try:
+                        self._log_callback(
+                            f"[Tokens] {self._session_metrics['tokens_in']:,} in / {self._session_metrics['tokens_out']:,} out (total: {total:,}, context: {pct}%)",
+                            "metric"
+                        )
+                    except Exception:
+                        pass
             return None, None
 
         # Result message
@@ -118,6 +186,7 @@ class SessionLoop:
 
                 # Tool use — Read, Edit, Write, Bash, etc.
                 if btype == "tool_use":
+                    self._session_metrics["tools_used"] += 1
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
                     return self._classify_tool(tool_name, tool_input)
@@ -144,6 +213,24 @@ class SessionLoop:
     WARNING_CHECKS = {"lint", "build", "git"}
     # Max retries before giving up
     MAX_VERIFY_RETRIES = 3
+
+    def _save_context_checkpoint(self):
+        """Save checkpoint when context threshold is reached.
+
+        Records context metrics and sets status to WORKING so the
+        next session can continue from where this one left off.
+        """
+        pct = int(self._context_percent * 100)
+        cp_data = self.checkpoint.load()
+        cp_data["context_percent"] = pct
+        cp_data["status"] = "WORKING"
+        decisions = cp_data.get("decisions", [])
+        decisions.append(f"Auto-checkpoint at {pct}% context ({self._session_metrics['tokens_in']:,} tokens)")
+        cp_data["decisions"] = decisions[-20:]
+        cp_data["last_action"] = f"Context overflow at {pct}% — session terminated for checkpoint"
+        cp_data["session_metrics"] = dict(self._session_metrics)
+        self.checkpoint.save(cp_data)
+        print(f"  [CONTEXT] Checkpoint saved (context: {pct}%, tokens: {self._session_metrics['tokens_in']:,})")
 
     def _capture_baseline(self):
         """Capture validation state BEFORE first session.
@@ -272,7 +359,7 @@ class SessionLoop:
         if self._log_callback:
             try:
                 log_msg = f"[Verification] {'PASSED' if passed else f'FAILED ({retry_count}/{self.MAX_VERIFY_RETRIES}): ' + '; '.join(blocking_issues[:2])}"
-                self._log_callback(log_msg, "text" if passed else "bash")
+                self._log_callback(log_msg, "verify")
             except Exception:
                 pass
 
@@ -450,6 +537,15 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
 
     def _run_claude_max(self, prompt: str) -> int:
         """Запустить Claude Code CLI (Max subscription)"""
+        # Reset session metrics and context state
+        self._context_overflow = False
+        self._context_percent = 0.0
+        self._session_metrics = {
+            "tokens_in": 0, "tokens_out": 0,
+            "cache_read": 0, "cache_creation": 0,
+            "tools_used": 0, "session_start": time.time(),
+            "session_duration": 0, "context_percent": 0.0,
+        }
         session_num = self.checkpoint.get_session_number()
         log_dir = self.project_dir / ".a1" / "sessions"
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -498,9 +594,24 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                             except Exception:
                                 pass
 
+                    # Context overflow — save checkpoint & terminate session
+                    if self._context_overflow and self._current_process.poll() is None:
+                        pct = int(self._context_percent * 100)
+                        print(f"\n  [CONTEXT] Terminating session at {pct}% context usage")
+                        self._save_context_checkpoint()
+                        self._current_process.terminate()
+                        self._current_process.wait(timeout=10)
+                        self._current_process = None
+                        if self._session_metrics.get("session_start"):
+                            self._session_metrics["session_duration"] = int(time.time() - self._session_metrics["session_start"])
+                        return 0  # Clean exit — not an error
+
             self._current_process.wait()
             returncode = self._current_process.returncode
             self._current_process = None
+            # Record session duration
+            if self._session_metrics.get("session_start"):
+                self._session_metrics["session_duration"] = int(time.time() - self._session_metrics["session_start"])
             return returncode
 
         except FileNotFoundError:
@@ -561,7 +672,17 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             duration = int(time.time() - start_time)
 
             print()
-            print(f"-- Session #{cp['session']} ended (duration: {duration}s, exit: {exit_code})")
+            context_info = ""
+            if self._context_overflow:
+                context_info = f", context: {int(self._context_percent * 100)}% [AUTO-CHECKPOINT]"
+            print(f"-- Session #{cp['session']} ended (duration: {duration}s, exit: {exit_code}{context_info})")
+
+            # Save session metrics to checkpoint
+            self._session_metrics["session_duration"] = duration
+            cp_data = self.checkpoint.load()
+            cp_data["session_metrics"] = dict(self._session_metrics)
+            cp_data["context_percent"] = int(self._context_percent * 100)
+            self.checkpoint.save(cp_data)
 
             # POST-SESSION VERIFICATION — don't trust agent, verify
             verification = self._verify_session()
