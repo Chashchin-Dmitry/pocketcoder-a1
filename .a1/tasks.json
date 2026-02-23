@@ -41,7 +41,19 @@
       "phase": "2.0",
       "success_criteria": "Terminal log with dots, colored labels, blinking cursor",
       "priority": 11
+    },
+    {
+      "id": "task_012",
+      "title": "E2E Test Task - Dashboard UX",
+      "description": "Test task added by Playwright E2E to verify form + backend",
+      "status": "pending",
+      "priority": 12,
+      "created_at": "2026-02-23T11:19:07.555491",
+      "completed_at": null,
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
     }
   ],
-  "next_id": 12
+  "next_id": 13
 }
