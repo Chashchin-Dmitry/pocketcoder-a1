@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=64.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pocketcoder-a1"
+version = "0.1.0"
+description = "Autonomous Coding Agent — The Autonomous Gnome"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    {name = "Dmitry Chashchin", email = "chashchin.dmitry@gmail.com"}
+]
+keywords = ["ai", "coding", "agent", "autonomous", "claude", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Code Generators",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1",
+]
+api = [
+    "anthropic>=0.18",
+]
+ollama = [
+    "ollama>=0.1",
+]
+test = [
+    "playwright>=1.40",
+]
+
+[project.scripts]
+pca = "a1.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Chashchin-Dmitry/pocketcoder-a1"
+Repository = "https://github.com/Chashchin-Dmitry/pocketcoder-a1"
+
+[tool.setuptools.packages.find]
+include = ["a1*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]

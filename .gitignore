@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Venv
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# A1 data (keep structure, ignore content)
+.a1/sessions/*
+.a1/checkpoints/*
+.a1/test-reports/*
+!.a1/sessions/.gitkeep
+!.a1/checkpoints/.gitkeep
+!.a1/test-reports/.gitkeep
