@@ -1,0 +1,17 @@
+sequenceDiagram
+    participant App as PocketCoder
+    participant API as Anthropic API
+    participant Tools as Tool Executor
+
+    App->>API: messages.stream(prompt + tools)
+    loop Until end_turn
+        API-->>App: content_block (text)
+        API-->>App: content_block (tool_use)
+        App->>Tools: Execute tool (Read/Write/Edit/Bash/Glob/Grep)
+        Tools-->>App: Tool result (string)
+        App->>API: tool_result message
+        API-->>App: content_block (text/tool_use)
+    end
+    API-->>App: stop_reason: end_turn
+    App->>App: Parse final result
+    App->>App: Update metrics

@@ -1,0 +1,27 @@
+graph LR
+    subgraph Client["Claude Code / Test Script"]
+        CC["MCP Client"]
+    end
+
+    subgraph MCP["MCP Server (@anthropic/mcp-server-playwright)"]
+        Server["MCP Protocol\nstdio transport"]
+        PW["Playwright Engine"]
+    end
+
+    subgraph Browser["Chromium"]
+        Page["Web Page"]
+        DOM["DOM"]
+        Screenshot["Screenshots"]
+    end
+
+    CC -->|"tool_call: navigate, click,\nfill, screenshot"| Server
+    Server --> PW
+    PW --> Page
+    Page --> DOM
+    Page --> Screenshot
+    Screenshot -->|"base64 PNG"| Server
+    Server -->|"tool_result"| CC
+
+    style Client fill:#6366f1,color:#fff
+    style MCP fill:#f59e0b,color:#000
+    style Browser fill:#10b981,color:#fff

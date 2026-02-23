@@ -1,0 +1,26 @@
+flowchart TD
+    Action["Действие пользователя\n(клик, ввод, отправка)"] --> Split
+
+    Split --> FE["Слой ФРОНТЕНДА"]
+    Split --> BE["Слой БЭКЕНДА"]
+
+    FE --> SS["Скриншот\n(Playwright)"]
+    FE --> DOM["Проверка DOM\n(locator, text_content)"]
+    FE --> Visual["Визуальная проверка\n(элемент есть? текст верный?)"]
+
+    BE --> API["Проверка API\n(GET /api/status)"]
+    BE --> File["Проверка файла\n(чтение tasks.json)"]
+    BE --> Process["Проверка процесса\n(агент работает?)"]
+
+    Visual --> Compare{"Фронтенд == Бэкенд?"}
+    API --> Compare
+    File --> Compare
+    Process --> Compare
+
+    Compare -->|Да| Pass["ПРОЙДЕН"]
+    Compare -->|Нет| Bug["БАГ НАЙДЕН\n(фронтенд врёт!)"]
+
+    style FE fill:#6366f1,color:#fff
+    style BE fill:#10b981,color:#fff
+    style Pass fill:#10b981,color:#fff
+    style Bug fill:#ef4444,color:#fff

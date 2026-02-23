@@ -1,0 +1,40 @@
+flowchart TD
+    Agent["Agent says: COMPLETED"] --> Gate["Verification Gate"]
+
+    Gate --> Tier1["TIER 1: BLOCKING"]
+    Tier1 --> Syntax["py_compile all .py files"]
+    Tier1 --> Tests["pytest"]
+    Tier1 --> Files["files_modified exist on disk?"]
+    Tier1 --> Criteria["success_criteria match?"]
+
+    Syntax --> B1{All pass?}
+    Tests --> B1
+    Files --> B1
+    Criteria --> B1
+
+    B1 -->|Yes| Tier2["TIER 2: WARNING (log only)"]
+    B1 -->|No, NEW issue| AntiLoop
+
+    Tier2 --> Lint["ruff (lint)"]
+    Tier2 --> Build["python -m build / npm run build"]
+    Tier2 --> Git["git diff + status"]
+
+    Lint --> Accept["ACCEPT: Session Complete"]
+    Build --> Accept
+    Git --> Accept
+
+    subgraph AntiLoop["TIER 3: ANTI-LOOP"]
+        Check["Is this a NEW issue?\n(compare vs baseline)"]
+        Check -->|Pre-existing| Skip["Skip (not agent's fault)"]
+        Check -->|New| RetryCheck{"retries < 3?"}
+        RetryCheck -->|Yes| Inject["Inject errors into\nnext session prompt"]
+        RetryCheck -->|No| Force["FORCE ACCEPT\n(stop infinite loop)"]
+    end
+
+    Skip --> Accept
+    Force --> Accept
+
+    style Tier1 fill:#ef4444,color:#fff
+    style Tier2 fill:#f59e0b,color:#000
+    style AntiLoop fill:#6366f1,color:#fff
+    style Accept fill:#10b981,color:#fff

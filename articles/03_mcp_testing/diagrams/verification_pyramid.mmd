@@ -1,0 +1,12 @@
+graph BT
+    L1["Level 1: Screenshots\nPlaywright page.screenshot()"] --> L2
+    L2["Level 2: API\nGET /api/status, /api/log"] --> L3
+    L3["Level 3: Files\ntasks.json, checkpoint.json"] --> L4
+    L4["Level 4: Functional\npytest, ruff, py_compile"] --> L5
+    L5["Level 5: Logs\nsession logs, activity log"]
+
+    style L1 fill:#10b981,color:#fff
+    style L2 fill:#6366f1,color:#fff
+    style L3 fill:#f59e0b,color:#000
+    style L4 fill:#ef4444,color:#fff
+    style L5 fill:#8b5cf6,color:#fff

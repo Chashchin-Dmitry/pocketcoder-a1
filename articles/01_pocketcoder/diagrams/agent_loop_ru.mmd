@@ -1,0 +1,36 @@
+flowchart TD
+    Start([Старт сессии]) --> Baseline["Захват baseline\n(существующие проблемы)"]
+    Baseline --> Prompt["Сборка промпта\ncheckpoint + задачи + очередь\n+ ошибки верификации"]
+    Prompt --> Provider{Провайдер?}
+
+    Provider -->|claude-max| Subprocess["Claude CLI Subprocess\n-p --stream-json --verbose\n--dangerously-skip-permissions\n--max-turns 25"]
+    Provider -->|claude-api| API["Anthropic SDK\nMessages Stream\n6 инструментов (Read/Write/Edit/Bash/Glob/Grep)"]
+    Provider -->|ollama| Ollama["Ollama Client\nПростой стриминг\nБез инструментов"]
+
+    Subprocess --> Parse["Парсинг событий\nassistant/tool_use/text/thinking\nrate_limit_event -> метрики"]
+    API --> Parse
+    Ollama --> Parse
+
+    Parse --> LiveLog["Живой лог дашборда\n8 типов иконок, цветные"]
+    Parse --> Metrics["Обновление метрик\nтокены вход/выход, кэш, время"]
+
+    Parse --> Done{Агент говорит\nCOMPLETED?}
+    Done -->|Нет| Prompt
+    Done -->|Да| Verify["Верификация сессии"]
+
+    Verify --> T1["УРОВЕНЬ 1: БЛОКИРУЮЩИЙ\nсинтаксис, тесты, файлы\nкритерии успеха"]
+    T1 --> T1Pass{Пройден?}
+    T1Pass -->|Да| T2["УРОВЕНЬ 2: ПРЕДУПРЕЖДЕНИЕ\nлинтер, сборка, git"]
+    T1Pass -->|Нет| Retry{Попыток < 3?}
+
+    Retry -->|Да| InjectErrors["Вставить ошибки\nв следующий промпт"]
+    InjectErrors --> Prompt
+    Retry -->|Нет| ForceAccept["Принудительное принятие\n(защита от зацикливания)"]
+    ForceAccept --> Complete
+
+    T2 --> Complete([Сессия завершена])
+
+    style Start fill:#6366f1,color:#fff
+    style Complete fill:#10b981,color:#fff
+    style ForceAccept fill:#ef4444,color:#fff
+    style Verify fill:#f59e0b,color:#000

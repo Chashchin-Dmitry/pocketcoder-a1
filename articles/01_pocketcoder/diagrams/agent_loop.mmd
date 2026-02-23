@@ -1,0 +1,36 @@
+flowchart TD
+    Start([Session Start]) --> Baseline["Capture Baseline\n(pre-existing issues)"]
+    Baseline --> Prompt["Build Prompt\ncheckpoint + tasks + queue\n+ verification errors"]
+    Prompt --> Provider{Provider?}
+
+    Provider -->|claude-max| Subprocess["Claude CLI Subprocess\n-p --stream-json --verbose\n--dangerously-skip-permissions\n--max-turns 25"]
+    Provider -->|claude-api| API["Anthropic SDK\nMessages Stream\n6 Tools (Read/Write/Edit/Bash/Glob/Grep)"]
+    Provider -->|ollama| Ollama["Ollama Client\nSimple Streaming\nNo Tool Calling"]
+
+    Subprocess --> Parse["Parse Stream Events\nassistant/tool_use/text/thinking\nrate_limit_event -> metrics"]
+    API --> Parse
+    Ollama --> Parse
+
+    Parse --> LiveLog["Dashboard Live Log\n8 icon types, colored"]
+    Parse --> Metrics["Update Metrics\ntokens in/out, cache, duration"]
+
+    Parse --> Done{Agent says\nCOMPLETED?}
+    Done -->|No| Prompt
+    Done -->|Yes| Verify["Verify Session"]
+
+    Verify --> T1["TIER 1 BLOCKING\nsyntax, tests, files_exist\nsuccess_criteria"]
+    T1 --> T1Pass{Pass?}
+    T1Pass -->|Yes| T2["TIER 2 WARNING\nlint, build, git"]
+    T1Pass -->|No| Retry{Retries < 3?}
+
+    Retry -->|Yes| InjectErrors["Inject errors\ninto next prompt"]
+    InjectErrors --> Prompt
+    Retry -->|No| ForceAccept["Force Accept\n(anti-infinite-loop)"]
+    ForceAccept --> Complete
+
+    T2 --> Complete([Session Complete])
+
+    style Start fill:#6366f1,color:#fff
+    style Complete fill:#10b981,color:#fff
+    style ForceAccept fill:#ef4444,color:#fff
+    style Verify fill:#f59e0b,color:#000

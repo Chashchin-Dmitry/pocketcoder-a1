@@ -1,0 +1,26 @@
+flowchart TD
+    Action["User Action\n(click, fill, submit)"] --> Split
+
+    Split --> FE["FRONTEND Layer"]
+    Split --> BE["BACKEND Layer"]
+
+    FE --> SS["Screenshot\n(Playwright)"]
+    FE --> DOM["DOM Check\n(locator, text_content)"]
+    FE --> Visual["Visual Verify\n(element exists? correct text?)"]
+
+    BE --> API["API Check\n(GET /api/status)"]
+    BE --> File["File Check\n(read tasks.json)"]
+    BE --> Process["Process Check\n(is agent alive?)"]
+
+    Visual --> Compare{"Frontend == Backend?"}
+    API --> Compare
+    File --> Compare
+    Process --> Compare
+
+    Compare -->|Yes| Pass["PASS"]
+    Compare -->|No| Bug["BUG FOUND\n(frontend lies!)"]
+
+    style FE fill:#6366f1,color:#fff
+    style BE fill:#10b981,color:#fff
+    style Pass fill:#10b981,color:#fff
+    style Bug fill:#ef4444,color:#fff

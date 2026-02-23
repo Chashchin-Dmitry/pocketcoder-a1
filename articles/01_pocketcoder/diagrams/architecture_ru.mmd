@@ -1,0 +1,70 @@
+graph TB
+    subgraph CLI["CLI (cli.py)"]
+        pca["pca init / task / start / ui / config"]
+    end
+
+    subgraph Dashboard["Дашборд (dashboard.py, 2589 строк)"]
+        HTTP["HTTP-сервер :7331"]
+        Pages["7 страниц / 17 API"]
+        LiveLog["Живой лог терминала"]
+    end
+
+    subgraph Core["Ядро"]
+        Loop["Цикл агента (loop.py)"]
+        Config["Конфиг (config.py)"]
+        CP["Чекпоинт (checkpoint.py)"]
+        Tasks["Задачи (tasks.py)"]
+        Valid["Валидатор (validator.py)"]
+    end
+
+    subgraph Providers["Провайдеры"]
+        CM["Claude Max (subprocess)"]
+        CA["Claude API (anthropic SDK)"]
+        OL["Ollama (ollama SDK)"]
+    end
+
+    subgraph Tester["Визуальный QA-тестер"]
+        Runner["runner.py"]
+        Scenarios["scenarios.py"]
+        Analyzer["analyzer.py (Vision API)"]
+        Browser["browser.py (Playwright)"]
+        Report["report.py"]
+    end
+
+    subgraph Data[".a1/ Данные"]
+        CJ["checkpoint.json"]
+        TJ["tasks.json"]
+        QJ["queue.json"]
+        Sessions["sessions/"]
+        Checkpoints["checkpoints/"]
+    end
+
+    pca --> Loop
+    pca --> Tasks
+    HTTP --> Loop
+    HTTP --> Tasks
+    HTTP --> CP
+    HTTP --> Config
+
+    Loop --> CM
+    Loop --> CA
+    Loop --> OL
+    Loop --> CP
+    Loop --> Tasks
+    Loop --> Valid
+
+    Config --> Data
+    CP --> CJ
+    Tasks --> TJ
+
+    Runner --> Scenarios
+    Runner --> Analyzer
+    Runner --> Browser
+    Runner --> Report
+
+    style CLI fill:#6366f1,color:#fff
+    style Dashboard fill:#10b981,color:#fff
+    style Core fill:#f59e0b,color:#000
+    style Providers fill:#ef4444,color:#fff
+    style Tester fill:#8b5cf6,color:#fff
+    style Data fill:#6b7280,color:#fff

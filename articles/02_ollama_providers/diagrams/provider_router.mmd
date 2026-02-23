@@ -1,0 +1,18 @@
+flowchart LR
+    Config["Config.resolve()\nCLI > env > config > defaults"] --> Router{"provider?"}
+
+    Router -->|claude-max| CM["_run_claude_max()\nClaude CLI subprocess\nFull tool calling\n--stream-json"]
+    Router -->|claude-api| CA["_run_claude_api()\nAnthropic SDK\n6 tools defined\nAgentic loop"]
+    Router -->|ollama| OL["_run_ollama()\nOllama Client\nSimple streaming\nNo tools"]
+
+    CM --> Parse["Stream Parser\nNDJSON events"]
+    CA --> Parse
+    OL --> Parse
+
+    Parse --> Dashboard["Dashboard\nLive Log + Metrics"]
+    Parse --> Verify["Verification\n3-tier gate"]
+
+    style Config fill:#6366f1,color:#fff
+    style CM fill:#10b981,color:#fff
+    style CA fill:#f59e0b,color:#000
+    style OL fill:#ef4444,color:#fff
