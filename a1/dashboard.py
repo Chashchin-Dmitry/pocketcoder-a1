@@ -231,6 +231,14 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+}
+[data-theme="dark"] .card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
 }
 
 .card-title {
@@ -446,6 +454,7 @@ input[type="text"] {
 input[type="text"]:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
 }
 
 input[type="text"]::placeholder {
@@ -468,6 +477,7 @@ textarea {
 textarea:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
 }
 textarea::placeholder {
     color: var(--text-secondary);
@@ -659,13 +669,123 @@ button {
     transition: transform 0.1s, opacity 0.2s;
 }
 
-button:hover { opacity: 0.9; }
+button:hover { filter: brightness(1.1); }
 button:active { transform: scale(0.98); }
 
 .btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
 .btn-success { background: var(--success); color: white; }
+.btn-success:hover { box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
 .btn-danger { background: var(--danger); color: white; }
 .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+
+/* Global select styling */
+select {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+input[type="number"] {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+input[type="password"] {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: monospace;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* Styled scrollbars */
+.activity-list::-webkit-scrollbar { width: 6px; }
+.activity-list::-webkit-scrollbar-track { background: transparent; }
+.activity-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    background: var(--success);
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 1000;
+    animation: toast-in 0.3s ease, toast-out 0.3s ease 2s forwards;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(10px); } }
+
+/* Settings-specific styles */
+.settings-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: block;
+}
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+}
+.settings-hint {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+/* Commit styling */
+.commit-hash {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.commit-msg {
+    font-weight: 500;
+}
+.commit-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
 
 /* Control buttons */
 .controls {
@@ -814,15 +934,17 @@ button:active { transform: scale(0.98); }
     font-size: 18px;
 }
 
-/* Task detail expandable */
+/* Task detail expandable — slide transition */
 .task-detail {
-    padding: 0 20px 16px 56px;
-    display: none;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 20px 0 56px;
     border-bottom: 1px solid var(--border-color);
+    transition: max-height 0.3s ease, padding 0.3s ease;
 }
-
 .task-detail.open {
-    display: block;
+    max-height: 400px;
+    padding: 12px 20px 16px 56px;
 }
 
 .task-stages {
@@ -1206,6 +1328,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json_status()
         elif path.startswith('/api/log'):
             self.send_json_log()
+        elif path == '/api/config':
+            self.send_json_config()
         else:
             self.send_error(404)
 
@@ -1293,6 +1417,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(b'{"ok": true}')
+
+        elif self.path == '/api/config':
+            try:
+                body = json.loads(post_data)
+                from .config import Config
+                config = Config(PROJECT_DIR)
+                for key, value in body.items():
+                    config.set(key, value)
+                log_activity("Config updated", ", ".join(body.keys()), "info")
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"ok": True}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         elif self.path == '/api/reorder':
             try:
@@ -1410,14 +1552,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if not tasks_html:
             tasks_html = '<div class="empty"><i class="bi bi-inbox"></i><p>No tasks yet</p></div>'
 
-        # Activity HTML (last 5)
+        # Activity HTML (last 5) with status icons
+        status_icons = {
+            'success': '<i class="bi bi-check-circle-fill" style="color:var(--success)"></i>',
+            'error': '<i class="bi bi-x-circle-fill" style="color:var(--danger)"></i>',
+            'warning': '<i class="bi bi-exclamation-triangle-fill" style="color:var(--warning)"></i>',
+            'info': '<i class="bi bi-info-circle-fill" style="color:var(--accent)"></i>',
+        }
         activity_html = ''
         for a in reversed(ACTIVITY_LOG[-5:]):
+            icon = status_icons.get(a['status'], status_icons['info'])
             activity_html += f'''
             <div class="activity-item">
                 <span class="activity-time">{esc(a['time'])}</span>
-                <span class="activity-dot {esc(a['status'])}"></span>
-                <span class="activity-text">{esc(a['action'])} <span class="activity-details">{esc(a['details'])}</span></span>
+                <span style="flex-shrink:0">{icon}</span>
+                <span class="activity-text"><strong>{esc(a['action'])}</strong> <span class="activity-details">{esc(a['details'])}</span></span>
             </div>
             '''
 
@@ -1676,20 +1825,57 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     session_num = data.get('session', '?')
                     status = data.get('status', 'Unknown')
                     files = len(data.get('files_modified', []))
+
+                    # Status badge color
+                    if status == 'COMPLETED':
+                        badge_cls = 'status-completed'
+                    elif status == 'WORKING':
+                        badge_cls = 'status-running'
+                    else:
+                        badge_cls = 'status-stopped'
+
+                    # Extract metrics from checkpoint data
+                    sm = data.get('session_metrics', {})
+                    tok_in = sm.get('tokens_in', 0)
+                    tok_out = sm.get('tokens_out', 0)
+                    duration = sm.get('session_duration', 0)
+                    tools = sm.get('tools_used', 0)
+
+                    # Format duration
+                    dur_str = f'{duration // 60}m {duration % 60}s' if duration >= 60 else f'{duration}s'
+
+                    # Format tokens
+                    def _fmt_tok(n):
+                        if n >= 1000000: return f'{n/1000000:.1f}M'
+                        if n >= 1000: return f'{n/1000:.1f}K'
+                        return str(n)
+
                     sessions_html += f'''
                     <div class="session-card">
                         <div class="session-header">
                             <span class="session-title">Session #{session_num}</span>
-                            <span class="status status-{'completed' if status == 'COMPLETED' else 'stopped'}">{status}</span>
+                            <span class="status {badge_cls}">{esc(status)}</span>
                         </div>
                         <div class="session-meta">
                             <div class="meta-item">
-                                <span class="meta-label">Files Modified</span>
+                                <span class="meta-label"><i class="bi bi-file-earmark-code"></i> Files</span>
                                 <span class="meta-value">{files}</span>
                             </div>
                             <div class="meta-item">
-                                <span class="meta-label">Current Task</span>
-                                <span class="meta-value">{data.get('current_task', 'N/A')}</span>
+                                <span class="meta-label"><i class="bi bi-check2-square"></i> Task</span>
+                                <span class="meta-value">{esc(data.get('current_task', 'N/A'))}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-lightning-charge"></i> Tokens</span>
+                                <span class="meta-value">{_fmt_tok(tok_in)} / {_fmt_tok(tok_out)}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-stopwatch"></i> Duration</span>
+                                <span class="meta-value">{dur_str}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label"><i class="bi bi-tools"></i> Tool Calls</span>
+                                <span class="meta-value">{tools}</span>
                             </div>
                         </div>
                     </div>
@@ -1697,64 +1883,93 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
+        # Current session status badge
+        if AGENT_RUNNING:
+            cur_badge = 'status-running'
+            cur_label = '<i class="bi bi-play-circle-fill"></i> Running'
+        elif cp.get('status') == 'COMPLETED':
+            cur_badge = 'status-completed'
+            cur_label = '<i class="bi bi-check-circle-fill"></i> Completed'
+        elif cp.get('status') == 'WORKING':
+            cur_badge = 'status-running'
+            cur_label = '<i class="bi bi-arrow-repeat"></i> Working'
+        else:
+            cur_badge = 'status-stopped'
+            cur_label = '<i class="bi bi-stop-circle-fill"></i> Idle'
+
         return f'''
         <div class="header">
-            <h1 class="page-title">Sessions</h1>
+            <h1 class="page-title"><i class="bi bi-terminal"></i> Sessions</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
         </div>
 
-        <div class="session-card">
+        <div class="session-card" style="border-left: 3px solid var(--accent)">
             <div class="session-header">
                 <span class="session-title">Current Session #{cp.get('session', 0)}</span>
-                <span class="status status-{'running' if AGENT_RUNNING else 'stopped'}">{'Running' if AGENT_RUNNING else 'Stopped'}</span>
+                <span class="status {cur_badge}">{cur_label}</span>
             </div>
             <div class="session-meta">
                 <div class="meta-item">
-                    <span class="meta-label">Status</span>
-                    <span class="meta-value">{cp.get('status', 'Not started')}</span>
+                    <span class="meta-label"><i class="bi bi-flag"></i> Status</span>
+                    <span class="meta-value">{esc(cp.get('status', 'Not started'))}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Context</span>
+                    <span class="meta-label"><i class="bi bi-pie-chart"></i> Context</span>
                     <span class="meta-value">{cp.get('context_percent', 0)}%</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Current Task</span>
-                    <span class="meta-value">{cp.get('current_task', 'None')}</span>
+                    <span class="meta-label"><i class="bi bi-check2-square"></i> Current Task</span>
+                    <span class="meta-value">{esc(cp.get('current_task', 'None'))}</span>
                 </div>
                 <div class="meta-item">
-                    <span class="meta-label">Files Modified</span>
+                    <span class="meta-label"><i class="bi bi-file-earmark-code"></i> Files Modified</span>
                     <span class="meta-value">{len(cp.get('files_modified', []))}</span>
                 </div>
             </div>
         </div>
 
-        <h3 style="margin: 24px 0 16px">Previous Sessions</h3>
+        <h3 style="margin: 24px 0 16px; color: var(--text-secondary); font-size: 14px; text-transform: uppercase; letter-spacing: 1px">Previous Sessions</h3>
         {sessions_html if sessions_html else '<div class="empty"><i class="bi bi-clock-history"></i><p>No previous sessions</p></div>'}
         '''
 
     def build_log_page(self):
+        # Icons per status type
+        status_icons = {
+            'success': '<i class="bi bi-check-circle-fill" style="color:var(--success)"></i>',
+            'error': '<i class="bi bi-x-circle-fill" style="color:var(--danger)"></i>',
+            'warning': '<i class="bi bi-exclamation-triangle-fill" style="color:var(--warning)"></i>',
+            'info': '<i class="bi bi-info-circle-fill" style="color:var(--accent)"></i>',
+        }
+
         activity_html = ''
         for a in reversed(ACTIVITY_LOG):
+            icon = status_icons.get(a['status'], status_icons['info'])
             activity_html += f'''
             <div class="activity-item">
                 <span class="activity-time">{esc(a['time'])}</span>
-                <span class="activity-dot {esc(a['status'])}"></span>
-                <span class="activity-text">{esc(a['action'])} <span class="activity-details">{esc(a['details'])}</span></span>
+                <span style="flex-shrink:0">{icon}</span>
+                <span class="activity-text">
+                    <strong>{esc(a['action'])}</strong>
+                    <span class="activity-details">{esc(a['details'])}</span>
+                </span>
             </div>
             '''
 
         return f'''
         <div class="header">
-            <h1 class="page-title">Activity Log</h1>
+            <h1 class="page-title"><i class="bi bi-journal-text"></i> Activity Log</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
         </div>
 
         <div class="activity">
-            <div class="activity-header">All Activity ({len(ACTIVITY_LOG)} entries)</div>
+            <div class="activity-header">
+                All Activity
+                <span style="font-weight:400;color:var(--text-secondary);font-size:13px;margin-left:8px">{len(ACTIVITY_LOG)} entries</span>
+            </div>
             <div class="activity-list" style="max-height:none">
                 {activity_html if activity_html else '<div class="empty"><i class="bi bi-clock-history"></i><p>No activity yet</p></div>'}
             </div>
@@ -1762,40 +1977,85 @@ class DashboardHandler(BaseHTTPRequestHandler):
         '''
 
     def build_commits_page(self):
-        # Get git log
+        # Get git log with dates and full formatting
         import subprocess
         commits_html = ''
         try:
             result = subprocess.run(
-                ['git', 'log', '--oneline', '-20'],
+                ['git', 'log', '--format=%h|%s|%cr|%an', '-20'],
                 cwd=PROJECT_DIR,
                 capture_output=True,
                 text=True
             )
             if result.returncode == 0:
                 for line in result.stdout.strip().split('\n'):
-                    if line:
-                        parts = line.split(' ', 1)
-                        hash_short = parts[0]
+                    if line and '|' in line:
+                        parts = line.split('|', 3)
+                        hash_short = parts[0] if len(parts) > 0 else ''
                         msg = parts[1] if len(parts) > 1 else ''
+                        rel_time = parts[2] if len(parts) > 2 else ''
+                        author = parts[3] if len(parts) > 3 else ''
+
+                        # Split commit message: first line = title, rest = body
+                        msg_title = esc(msg)
+
+                        # Icon based on conventional commit prefix
+                        if msg.startswith('feat'):
+                            icon_cls = 'bi-plus-circle'
+                            icon_color = 'var(--success)'
+                        elif msg.startswith('fix'):
+                            icon_cls = 'bi-bug'
+                            icon_color = 'var(--danger)'
+                        elif msg.startswith('docs') or msg.startswith('doc'):
+                            icon_cls = 'bi-file-text'
+                            icon_color = 'var(--accent)'
+                        elif msg.startswith('refactor') or msg.startswith('chore'):
+                            icon_cls = 'bi-arrow-repeat'
+                            icon_color = 'var(--warning)'
+                        elif msg.startswith('test'):
+                            icon_cls = 'bi-check2-circle'
+                            icon_color = '#89dceb'
+                        else:
+                            icon_cls = 'bi-git'
+                            icon_color = 'var(--text-secondary)'
+
                         commits_html += f'''
                         <div class="task">
-                            <div class="task-check"><i class="bi bi-git"></i></div>
+                            <div class="task-check" style="border-color:{icon_color};color:{icon_color}"><i class="bi {icon_cls}"></i></div>
                             <div class="task-content">
-                                <div class="task-title">{msg}</div>
-                                <div class="task-meta">{hash_short}</div>
+                                <div class="commit-msg">{msg_title}</div>
+                                <div style="display:flex;gap:12px;align-items:center;margin-top:4px">
+                                    <span class="commit-hash">{esc(hash_short)}</span>
+                                    <span class="commit-time">{esc(rel_time)}</span>
+                                    <span class="commit-time">{esc(author)}</span>
+                                </div>
                             </div>
                         </div>
                         '''
         except Exception:
             pass
 
+        # Branch info
+        branch = ''
+        try:
+            result = subprocess.run(
+                ['git', 'branch', '--show-current'],
+                cwd=PROJECT_DIR, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                branch = result.stdout.strip()
+        except Exception:
+            pass
+
         return f'''
         <div class="header">
-            <h1 class="page-title">Git Commits</h1>
-            <button class="theme-toggle" onclick="toggleTheme()">
-                <i class="bi bi-moon-stars"></i>
-            </button>
+            <h1 class="page-title"><i class="bi bi-git"></i> Git Commits</h1>
+            <div class="header-actions">
+                {f'<span style="font-size:13px;color:var(--text-secondary)"><i class="bi bi-diagram-2"></i> {esc(branch)}</span>' if branch else ''}
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
+            </div>
         </div>
 
         <div class="task-list">
@@ -1807,28 +2067,188 @@ class DashboardHandler(BaseHTTPRequestHandler):
         '''
 
     def build_settings_page(self):
-        return '''
+        from .config import Config
+        config = Config(PROJECT_DIR)
+        data = config.get_all()
+        provider = esc(data.get("provider", "claude-max"))
+        api_key_masked = esc(config.mask_api_key(data.get("api_key")) or "")
+        ollama_host = esc(data.get("ollama_host", "http://localhost:11434"))
+        ollama_model = esc(data.get("ollama_model", "qwen3:30b-a3b"))
+        max_sessions = data.get("max_sessions", 100)
+        max_turns = data.get("max_turns", 25)
+        session_delay = data.get("session_delay", 5)
+        context_threshold = data.get("context_threshold", 0.70)
+
+        # Provider options with selected state
+        providers = [
+            ("claude-max", "claude-max (Claude Code CLI)"),
+            ("claude-api", "claude-api [EXPERIMENTAL]"),
+            ("ollama", "ollama [EXPERIMENTAL]"),
+        ]
+        options_html = ""
+        for val, label in providers:
+            sel = ' selected' if val == provider else ''
+            options_html += f'<option value="{val}"{sel}>{label}</option>'
+
+        return f'''
         <div class="header">
-            <h1 class="page-title">Settings</h1>
+            <h1 class="page-title"><i class="bi bi-gear"></i> Settings</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
         </div>
 
         <div class="card" style="margin-bottom:16px">
-            <div class="card-title">Theme</div>
-            <button onclick="toggleTheme()" class="btn-secondary">
+            <div class="card-title"><i class="bi bi-cpu"></i> Provider</div>
+            <select id="cfg-provider" onchange="onProviderChange(this.value)" style="margin-top:8px">
+                {options_html}
+            </select>
+            <div id="provider-badge" class="settings-hint">
+                {self._provider_badge(provider)}
+            </div>
+        </div>
+
+        <div class="card" id="card-apikey" style="margin-bottom:16px;{'display:none' if provider != 'claude-api' else ''}">
+            <div class="card-title"><i class="bi bi-key"></i> API Key</div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <input type="password" id="cfg-apikey" placeholder="sk-ant-api03-..."
+                    value="{api_key_masked}" style="flex:1">
+                <button onclick="saveApiKey()" class="btn-primary" style="white-space:nowrap">
+                    <i class="bi bi-check-lg"></i> Save
+                </button>
+            </div>
+            <div class="settings-hint">
+                Or set <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px">ANTHROPIC_API_KEY</code> environment variable
+            </div>
+        </div>
+
+        <div class="card" id="card-ollama" style="margin-bottom:16px;{'display:none' if provider != 'ollama' else ''}">
+            <div class="card-title"><i class="bi bi-hdd-network"></i> Ollama</div>
+            <div style="margin-top:8px">
+                <label class="settings-label">Host URL</label>
+                <input type="text" id="cfg-ollama-host" value="{ollama_host}" style="font-family:monospace;width:100%">
+            </div>
+            <div style="margin-top:12px">
+                <label class="settings-label">Model</label>
+                <input type="text" id="cfg-ollama-model" value="{ollama_model}" style="font-family:monospace;width:100%">
+            </div>
+            <button onclick="saveOllamaConfig()" class="btn-primary" style="margin-top:12px">
+                <i class="bi bi-check-lg"></i> Save
+            </button>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-title"><i class="bi bi-sliders"></i> Session</div>
+            <div class="settings-grid">
+                <div>
+                    <label class="settings-label">Max Sessions</label>
+                    <input type="number" id="cfg-max-sessions" value="{max_sessions}" min="1" max="1000">
+                </div>
+                <div>
+                    <label class="settings-label">Max Turns</label>
+                    <input type="number" id="cfg-max-turns" value="{max_turns}" min="1" max="100">
+                </div>
+                <div>
+                    <label class="settings-label">Session Delay (sec)</label>
+                    <input type="number" id="cfg-delay" value="{session_delay}" min="0" max="60">
+                </div>
+                <div>
+                    <label class="settings-label">Context Threshold</label>
+                    <input type="number" id="cfg-threshold" value="{context_threshold}" min="0.1" max="0.95" step="0.05">
+                </div>
+            </div>
+            <button onclick="saveSessionConfig()" class="btn-primary" style="margin-top:12px">
+                <i class="bi bi-check-lg"></i> Save
+            </button>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-title"><i class="bi bi-moon-stars"></i> Theme</div>
+            <button onclick="toggleTheme()" class="btn-secondary" style="margin-top:8px">
                 <i class="bi bi-moon-stars"></i> Toggle Dark/Light
             </button>
         </div>
 
-        <div class="card">
-            <div class="card-title">Provider</div>
-            <p style="color: var(--text-secondary); margin-top: 8px">
-                Current: <strong>claude-max</strong> (Claude Code CLI)
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-title"><i class="bi bi-file-earmark-code"></i> Config File</div>
+            <p style="margin-top:8px;font-family:monospace" class="commit-hash">
+                {esc(str(config.path))}
             </p>
         </div>
+
+        <script>
+        function showToast(msg) {{
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 2500);
+        }}
+
+        function onProviderChange(val) {{
+            document.getElementById('card-apikey').style.display = val === 'claude-api' ? 'block' : 'none';
+            document.getElementById('card-ollama').style.display = val === 'ollama' ? 'block' : 'none';
+            fetch('/api/config', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{provider: val}})
+            }}).then(r => r.json()).then(d => {{
+                if (d.ok) {{
+                    let badge = document.getElementById('provider-badge');
+                    if (val === 'claude-max') badge.innerHTML = '<span style="color:var(--success)">Active</span>';
+                    else badge.innerHTML = '<span style="color:var(--warning)">EXPERIMENTAL</span>';
+                    showToast('Provider saved: ' + val);
+                }}
+            }});
+        }}
+
+        function saveApiKey() {{
+            let key = document.getElementById('cfg-apikey').value;
+            if (!key || key.includes('...')) {{ showToast('Enter the full API key'); return; }}
+            fetch('/api/config', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{api_key: key}})
+            }}).then(r => r.json()).then(d => {{
+                if (d.ok) showToast('API key saved');
+            }});
+        }}
+
+        function saveOllamaConfig() {{
+            let host = document.getElementById('cfg-ollama-host').value;
+            let model = document.getElementById('cfg-ollama-model').value;
+            fetch('/api/config', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{ollama_host: host, ollama_model: model}})
+            }}).then(r => r.json()).then(d => {{
+                if (d.ok) showToast('Ollama config saved');
+            }});
+        }}
+
+        function saveSessionConfig() {{
+            let cfg = {{
+                max_sessions: parseInt(document.getElementById('cfg-max-sessions').value),
+                max_turns: parseInt(document.getElementById('cfg-max-turns').value),
+                session_delay: parseInt(document.getElementById('cfg-delay').value),
+                context_threshold: parseFloat(document.getElementById('cfg-threshold').value),
+            }};
+            fetch('/api/config', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify(cfg)
+            }}).then(r => r.json()).then(d => {{
+                if (d.ok) showToast('Session config saved');
+            }});
+        }}
+        </script>
         '''
+
+    def _provider_badge(self, provider: str) -> str:
+        """Generate provider status badge HTML"""
+        if provider == "claude-max":
+            return '<span style="color:#a6e3a1">Active</span>'
+        return '<span style="color:#f9e2af">EXPERIMENTAL</span> — untested'
 
     def build_transform_page(self):
         return '''
@@ -1839,17 +2259,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
             </button>
         </div>
 
+        <div class="cards" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+            <div class="card" style="text-align:center;padding:16px">
+                <div style="font-size:24px;margin-bottom:8px"><i class="bi bi-pencil-square" style="color:var(--accent)"></i></div>
+                <div style="font-size:13px;font-weight:600">1. Write</div>
+                <div style="font-size:12px;color:var(--text-secondary)">Enter raw text or ideas</div>
+            </div>
+            <div class="card" style="text-align:center;padding:16px">
+                <div style="font-size:24px;margin-bottom:8px"><i class="bi bi-magic" style="color:var(--warning)"></i></div>
+                <div style="font-size:13px;font-weight:600">2. Transform</div>
+                <div style="font-size:12px;color:var(--text-secondary)">AI breaks into tasks</div>
+            </div>
+            <div class="card" style="text-align:center;padding:16px">
+                <div style="font-size:24px;margin-bottom:8px"><i class="bi bi-check2-all" style="color:var(--success)"></i></div>
+                <div style="font-size:13px;font-weight:600">3. Confirm</div>
+                <div style="font-size:12px;color:var(--text-secondary)">Review and add to queue</div>
+            </div>
+        </div>
+
         <div class="form-section">
             <h3>Raw Text to Tasks</h3>
             <p style="color: var(--text-secondary); margin-bottom:16px; font-size:13px">
                 Enter raw text, notes, or ideas — AI will break them into structured tasks.
             </p>
-            <textarea id="transform-input" rows="6" placeholder="Example: Add login page, registration form, password reset, write tests for auth..."></textarea>
-            <div style="margin-top:12px">
+            <textarea id="transform-input" rows="6" placeholder="Example:&#10;Add login page with email/password fields&#10;Registration form with validation&#10;Password reset flow via email&#10;Write unit tests for auth module"></textarea>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
                 <button class="btn-primary" onclick="doTransform()" id="transform-btn">
                     <i class="bi bi-magic"></i> AI Transform
                 </button>
-                <span id="transform-status" style="margin-left:12px;font-size:13px;color:var(--text-secondary)"></span>
+                <span id="transform-status" style="font-size:13px;color:var(--text-secondary)"></span>
             </div>
         </div>
 
@@ -2017,6 +2455,20 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
+    def send_json_config(self):
+        """Return current config (API key masked)"""
+        from .config import Config, DEFAULTS
+        config = Config(PROJECT_DIR)
+        data = config.get_all()
+        # Mask API key for security
+        if data.get("api_key"):
+            data["api_key"] = config.mask_api_key(data["api_key"])
+        data["_defaults"] = DEFAULTS
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
+
     def _render_log_entries(self):
         """Render existing log buffer entries as HTML (terminal style)"""
         label_map = {
@@ -2053,8 +2505,11 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
                 global AGENT_RUNNING, AGENT_LOOP
                 AGENT_RUNNING = True
                 try:
+                    from .config import Config
                     from .loop import SessionLoop
-                    loop = SessionLoop(PROJECT_DIR)
+                    config = Config(PROJECT_DIR)
+                    resolved = config.resolve()
+                    loop = SessionLoop(project_dir=PROJECT_DIR, **resolved)
                     loop._log_callback = _on_agent_line
                     AGENT_LOOP = loop
                     loop.start()
