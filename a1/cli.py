@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import __codename__, __version__
 from .checkpoint import CheckpointManager
+from .config import Config
 from .dashboard import run_dashboard
 from .loop import SessionLoop
 from .tasks import TaskManager
@@ -102,13 +103,20 @@ def cmd_start(args):
         print("   Add tasks with: pca think 'idea' or pca task add 'task'")
         return 1
 
-    # Запускаем loop
-    loop = SessionLoop(
-        project_dir=project_dir,
-        provider=args.provider,
-        max_sessions=args.max_sessions,
-    )
+    # Load config and merge with CLI args
+    config = Config(project_dir)
+    resolved = config.resolve(cli_args={
+        "provider": args.provider if args.provider != "claude-max" else None,
+        "model": getattr(args, "model", None),
+        "api_key": getattr(args, "api_key", None),
+        "ollama_host": getattr(args, "ollama_host", None),
+        "ollama_model": getattr(args, "ollama_model", None),
+        "max_sessions": args.max_sessions if args.max_sessions != 100 else None,
+        "max_turns": getattr(args, "max_turns", None),
+        "session_delay": getattr(args, "session_delay", None),
+    })
 
+    loop = SessionLoop(project_dir=project_dir, **resolved)
     loop.start()
 
     return 0
@@ -200,6 +208,64 @@ def cmd_log(args):
     return 0
 
 
+def cmd_config(args):
+    """View or edit configuration"""
+    project_dir = Path(args.project).resolve()
+    config = Config(project_dir)
+
+    if args.reset:
+        config.reset()
+        print("[OK] Config reset to defaults")
+        return 0
+
+    if not args.key:
+        # Show all config
+        from .config import DEFAULTS
+        data = config.get_all()
+        print("=" * 50)
+        print("CONFIGURATION")
+        print("=" * 50)
+        print(f"  File: {config.path}")
+        print()
+        for key in DEFAULTS:
+            val = data.get(key)
+            # Mask API key
+            if key == "api_key" and val:
+                val = config.mask_api_key(val)
+            default = DEFAULTS[key]
+            marker = "" if val == default else " (custom)"
+            print(f"  {key}: {val}{marker}")
+        return 0
+
+    if args.value is None:
+        # Show single value
+        val = config.get(args.key)
+        if args.key == "api_key" and val:
+            val = config.mask_api_key(val)
+        print(f"{args.key}: {val}")
+        return 0
+
+    # Set value (auto-convert types)
+    value = args.value
+    if value.lower() in ("true", "false"):
+        value = value.lower() == "true"
+    elif value == "null" or value == "none":
+        value = None
+    else:
+        try:
+            value = int(value)
+        except ValueError:
+            try:
+                value = float(value)
+            except ValueError:
+                pass  # keep as string
+
+    config.set(args.key, value)
+    display = config.mask_api_key(value) if args.key == "api_key" and value else value
+    print(f"[OK] {args.key} = {display}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="pca",
@@ -248,6 +314,12 @@ def main():
     p_start.add_argument(
         "--max-sessions", type=int, default=100, help="Max sessions"
     )
+    p_start.add_argument("--model", help="Model name (provider-specific)")
+    p_start.add_argument("--api-key", help="Anthropic API key (or env ANTHROPIC_API_KEY)")
+    p_start.add_argument("--ollama-host", help="Ollama host URL")
+    p_start.add_argument("--ollama-model", help="Ollama model name")
+    p_start.add_argument("--max-turns", type=int, help="Max turns per session (default: 25)")
+    p_start.add_argument("--session-delay", type=int, help="Delay between sessions in seconds")
     p_start.set_defaults(func=cmd_start)
 
     # status
@@ -269,6 +341,13 @@ def main():
     p_test.add_argument("-s", "--scenario", type=int, help="Run specific scenario (1-7)")
     p_test.add_argument("--port", type=int, default=7331, help="Dashboard port (default: 7331)")
     p_test.set_defaults(func=cmd_test)
+
+    # config
+    p_config = subparsers.add_parser("config", help="View/edit configuration")
+    p_config.add_argument("key", nargs="?", help="Config key to get/set")
+    p_config.add_argument("value", nargs="?", help="Value to set")
+    p_config.add_argument("--reset", action="store_true", help="Reset to defaults")
+    p_config.set_defaults(func=cmd_config)
 
     # dashboard (web UI)
     p_dash = subparsers.add_parser("ui", help="Launch web dashboard")
