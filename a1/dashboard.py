@@ -2534,7 +2534,7 @@ def find_free_port(start_port: int = 7331, max_attempts: int = 20) -> int:
         port = start_port + offset
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
+                s.bind(('0.0.0.0', port))
                 return port
         except OSError:
             continue
@@ -2559,7 +2559,7 @@ def run_dashboard(project_dir: Path, port: int = None, open_browser: bool = True
         except RuntimeError:
             port = find_free_port(7331)
 
-    server = HTTPServer(('localhost', port), DashboardHandler)
+    server = HTTPServer(('0.0.0.0', port), DashboardHandler)
 
     url = f'http://localhost:{port}'
     print()
