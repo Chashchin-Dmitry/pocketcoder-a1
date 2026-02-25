@@ -149,17 +149,35 @@ body {
 
 .logo {
     font-size: 18px;
-    font-weight: bold;
+    font-weight: 600;
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+}
+
+.logo-pixel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 6px;
+    letter-spacing: -0.5px;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
 }
 
 .logo-sub {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     margin-bottom: 30px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px;
 }
 
 .nav-section {
@@ -1215,9 +1233,9 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
     <div class="layout">
         <aside class="sidebar">
             <div class="logo">
-                <i class="bi bi-robot"></i> PocketCoder-A1
+                <span class="logo-pixel">A1</span> PocketCoder
             </div>
-            <div class="logo-sub">Autonomous Gnome v0.1.0</div>
+            <div class="logo-sub">Autonomous Gnome v0.2.0</div>
 
             <nav>
                 <div class="nav-section">
@@ -1401,7 +1419,8 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                                 const label = labelMap[e.type] || 'LOG';
                                 const color = colorMap[e.type] || '#6c7086';
                                 const pixelIcon = '<span class="px-icon" style="background:' + color + '"></span>';
-                                feed.innerHTML += '<div class="log-entry">' + pixelIcon + '<span class="log-time">' + e.time + '</span><span class="log-label" style="color:' + color + '">' + label + '</span><span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
+                                const tidTag = e.task_id ? '<span style="color:var(--accent);font-size:10px;margin-right:4px">[' + escHtml(e.task_id) + ']</span>' : '';
+                                feed.innerHTML += '<div class="log-entry">' + pixelIcon + '<span class="log-time">' + e.time + '</span><span class="log-label" style="color:' + color + '">' + label + '</span>' + tidTag + '<span class="log-text">' + escHtml(e.line.substring(0,150)) + '</span></div>';
                                 rawlog.textContent += e.line + '\\n';
                             });
                             feed.scrollTop = feed.scrollHeight;
@@ -1575,9 +1594,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.start_agent()
             self.redirect('/')
 
+        elif re.match(r'^/start-task/(task_\d+)$', self.path):
+            task_id = re.match(r'^/start-task/(task_\d+)$', self.path).group(1)
+            self.start_task_agent(task_id)
+
         elif self.path == '/stop':
             self.stop_agent()
             self.redirect('/')
+
+        elif self.path == '/add-tasks-bulk':
+            lines_raw = params.get('tasks_bulk', [''])[0]
+            if lines_raw.strip():
+                tasks_mgr = TaskManager(PROJECT_DIR)
+                count = 0
+                for line in lines_raw.strip().split('\n'):
+                    line = line.strip().lstrip('- ').lstrip('* ').lstrip('0123456789.)')
+                    line = line.strip()
+                    if line:
+                        tasks_mgr.add_task(line)
+                        count += 1
+                log_activity("Bulk tasks added", f"{count} tasks", "success")
+            self.redirect('/tasks')
 
         elif self.path == '/toggle-theme':
             self.redirect('/')
@@ -2027,6 +2064,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 </div>
             </form>
         </div>
+
+        <div class="form-section">
+            <h3>Bulk Add Tasks</h3>
+            <p style="color:var(--text-secondary);font-size:12px;margin-bottom:12px">One task per line. Priorities auto-assigned.</p>
+            <form method="POST" action="/add-tasks-bulk">
+                <textarea name="tasks_bulk" rows="6" placeholder="Add login page&#10;Write unit tests&#10;Fix responsive layout&#10;Deploy to staging"></textarea>
+                <div style="margin-top:12px">
+                    <button type="submit" class="btn-primary"><i class="bi bi-list-task"></i> Add All</button>
+                </div>
+            </form>
+        </div>
         '''
 
     def build_task_detail_page(self, task_id):
@@ -2053,8 +2101,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
         completed = task.completed_at[:16].replace('T', ' ') if task.completed_at else '—'
         pri = getattr(task, 'priority', 0) or 0
 
-        # Filtered logs from buffer
-        task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
+        # Check if this is the active task
+        is_active = False
+        active_task_id = _get_current_task_id()
+        if AGENT_RUNNING and active_task_id == task_id:
+            is_active = True
+
+        # Filtered logs: if active task, show ALL logs (including untagged)
+        # If historical, filter by task_id match only
+        if is_active:
+            task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') in (task_id, None)]
+        else:
+            task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
 
         # Log type colors and labels
         label_map = {
@@ -2132,15 +2190,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 <span class="td-log-text">{esc(e["line"][:200])}</span>
             </div>'''
 
-        # Check if this is the active task
-        is_active = False
-        if AGENT_LOOP and hasattr(AGENT_LOOP, 'checkpoint'):
-            try:
-                cp = AGENT_LOOP.checkpoint.load()
-                is_active = cp.get('current_task') == task_id and AGENT_RUNNING
-            except Exception:
-                pass
-
         active_dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);margin-left:8px;animation:pulse 1.5s infinite"></span>' if is_active else ''
 
         return f'''
@@ -2150,6 +2199,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <h1>{esc(task.title)}{active_dot}</h1>
             <span class="td-badge {badge_cls}">{status_label}</span>
             {f'<span style="color:var(--text-secondary);font-size:13px">Priority #{pri}</span>' if pri else ''}
+            {'<button class="btn-primary" id="start-task-btn" onclick="startTask()" style="margin-left:auto"><i class="bi bi-play-fill"></i> Start Task</button>' if task.status in ('pending', 'in_progress') and not is_active else ''}
+            {'<button class="btn-secondary" id="stop-task-btn" onclick="stopTask()" style="margin-left:8px"><i class="bi bi-stop-fill"></i> Stop</button>' if is_active else ''}
         </div>
 
         <div class="td-grid">
@@ -2203,12 +2254,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
         <script>
         var taskPageId = '{task_id}';
         var taskLogIndex = 0;
+
+        function startTask() {{
+            var btn = document.getElementById('start-task-btn');
+            if (btn) btn.disabled = true;
+            fetch('/start-task/' + taskPageId, {{method: 'POST'}})
+                .then(r => r.json())
+                .then(d => {{
+                    if (btn) btn.textContent = 'Running...';
+                }}).catch(() => {{ if (btn) btn.disabled = false; }});
+        }}
+
+        function stopTask() {{
+            fetch('/stop', {{method: 'POST'}});
+        }}
+
         function updateTaskLog() {{
             fetch('/api/log?since=' + taskLogIndex)
                 .then(r => r.json())
                 .then(data => {{
                     if (data.entries && data.entries.length > 0) {{
-                        var filtered = data.entries.filter(e => e.task_id === taskPageId);
+                        // Show logs for this task_id OR untagged (null) if this is the active task
+                        var filtered = data.entries.filter(e => e.task_id === taskPageId || e.task_id === null || e.task_id === undefined);
                         if (filtered.length > 0) {{
                             var container = document.getElementById('task-log-body');
                             var emptyEl = container.querySelector('.td-log-empty');
@@ -2895,8 +2962,12 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
             self.wfile.write(json.dumps({"error": "Task not found"}).encode('utf-8'))
             return
 
-        # Filtered logs
-        task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
+        # Filtered logs: if active task, include untagged logs
+        is_active_task = AGENT_RUNNING and _get_current_task_id() == task_id
+        if is_active_task:
+            task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') in (task_id, None)]
+        else:
+            task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
 
         # Metrics from logs
         tool_types = {}
@@ -2968,7 +3039,9 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
             etype = e.get('type', 'text')
             label = label_map.get(etype, 'LOG')
             color = color_map.get(etype, '#6c7086')
-            html += f'<div class="log-entry"><span class="px-icon" style="background:{color}"></span><span class="log-time">{esc(e["time"])}</span><span class="log-label" style="color:{color}">{label}</span><span class="log-text">{esc(e["line"][:150])}</span></div>'
+            tid = e.get('task_id', '')
+            tid_tag = f'<span style="color:var(--accent);font-size:10px;margin-right:4px">[{esc(tid)}]</span>' if tid else ''
+            html += f'<div class="log-entry"><span class="px-icon" style="background:{color}"></span><span class="log-time">{esc(e["time"])}</span><span class="log-label" style="color:{color}">{label}</span>{tid_tag}<span class="log-text">{esc(e["line"][:150])}</span></div>'
         if not AGENT_LOG_BUFFER:
             html = '<div class="log-empty">Waiting for agent output...<span class="log-cursor"></span></div>'
         return html
@@ -2981,7 +3054,20 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
         global AGENT_RUNNING, AGENT_LOOP
         if not AGENT_RUNNING:
             AGENT_LOG_BUFFER.clear()
-            log_activity("Agent started", "", "success")
+
+            # Pre-set current_task so logs get tagged from the start
+            tasks_mgr = TaskManager(PROJECT_DIR)
+            next_task = tasks_mgr.get_next_task()
+            if next_task:
+                checkpoint = CheckpointManager(PROJECT_DIR)
+                cp = checkpoint.load()
+                if not cp.get("current_task"):
+                    cp["current_task"] = next_task.id
+                    checkpoint.save(cp)
+                _TASK_CACHE["task_id"] = cp.get("current_task") or (next_task.id if next_task else None)
+                _TASK_CACHE["ts"] = _time.time()
+
+            log_activity("Agent started", f"task: {next_task.id if next_task else 'none'}", "success")
 
             def run():
                 global AGENT_RUNNING, AGENT_LOOP
@@ -3002,6 +3088,34 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
 
             thread = threading.Thread(target=run, daemon=True)
             thread.start()
+
+    def start_task_agent(self, task_id):
+        """Start agent on a specific task — set current_task + in_progress, then start"""
+        # Set task to in_progress
+        tasks_mgr = TaskManager(PROJECT_DIR)
+        tasks_mgr.start_task(task_id)
+
+        # Set current_task in checkpoint so agent picks it up
+        checkpoint = CheckpointManager(PROJECT_DIR)
+        cp = checkpoint.load()
+        cp["current_task"] = task_id
+        checkpoint.save(cp)
+
+        # Update task cache immediately
+        _TASK_CACHE["task_id"] = task_id
+        _TASK_CACHE["ts"] = _time.time()
+
+        log_activity("Task started", task_id, "success")
+
+        # Start agent if not running
+        if not AGENT_RUNNING:
+            self.start_agent()
+
+        # Return JSON (called via fetch from task detail page)
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({"ok": True, "task_id": task_id}).encode('utf-8'))
 
     def stop_agent(self):
         global AGENT_RUNNING, AGENT_LOOP
