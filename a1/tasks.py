@@ -97,8 +97,19 @@ class TaskManager:
         data["raw_thoughts"] = []
         self._save_data(data)
 
+    def delete_task(self, task_id: str) -> bool:
+        """Удалить задачу по ID"""
+        data = self._load_data()
+        before = len(data["tasks"])
+        data["tasks"] = [t for t in data["tasks"] if t.get("id") != task_id]
+        if len(data["tasks"]) < before:
+            self._save_data(data)
+            return True
+        return False
+
     def add_task(
-        self, title: str, description: str = "", raw_thought: Optional[str] = None
+        self, title: str, description: str = "", raw_thought: Optional[str] = None,
+        success_criteria: Optional[str] = None
     ) -> Task:
         """Добавить задачу"""
         data = self._load_data()
@@ -114,6 +125,7 @@ class TaskManager:
             priority=next_priority,
             created_at=datetime.now().isoformat(),
             raw_thought=raw_thought,
+            success_criteria=success_criteria,
         )
 
         data["tasks"].append(task.to_dict())

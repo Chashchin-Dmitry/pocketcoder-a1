@@ -139,7 +139,7 @@ body {
 /* Sidebar */
 .sidebar {
     background: var(--bg-secondary);
-    border-right: 1px solid var(--border-color);
+    border-right: 3px solid var(--border-color);
     padding: 20px;
     position: sticky;
     top: 0;
@@ -147,37 +147,28 @@ body {
     overflow-y: auto;
 }
 
-.logo {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.logo-ascii {
+    margin-bottom: 4px;
+    user-select: none;
 }
-
-.logo-pixel {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: var(--accent);
-    color: #fff;
+.logo-art {
+    color: var(--accent);
+    font-size: 11px;
+    line-height: 1.05;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    font-weight: 700;
-    border-radius: 6px;
-    letter-spacing: -0.5px;
-    text-shadow: 1px 1px 0 rgba(0,0,0,0.2);
+    margin: 0;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.4), -1px -1px 0 rgba(255,180,130,0.15);
+    filter: drop-shadow(0 2px 4px rgba(218,119,86,0.3));
+    letter-spacing: 0.5px;
 }
 
 .logo-sub {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
     margin-bottom: 30px;
     font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .nav-section {
@@ -197,20 +188,26 @@ body {
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    border-radius: 8px;
+    border-radius: 0;
     color: var(--text-primary);
     text-decoration: none;
-    margin-bottom: 4px;
-    transition: background 0.2s;
+    margin-bottom: 2px;
+    transition: background 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    border-left: 3px solid transparent;
 }
 
 .nav-item:hover {
     background: var(--bg-tertiary);
+    border-left-color: var(--border-color);
 }
 
 .nav-item.active {
     background: var(--accent);
     color: white;
+    border-left-color: var(--accent);
 }
 
 .nav-item i {
@@ -232,8 +229,11 @@ body {
 }
 
 .page-title {
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .header-actions {
@@ -248,9 +248,12 @@ body {
     align-items: center;
     gap: 6px;
     padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 500;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .status-running { background: var(--success); color: white; }
@@ -267,84 +270,107 @@ body {
 
 .card {
     background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border: 3px solid var(--border-color);
+    border-radius: 0;
     padding: 20px;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.15s;
+    box-shadow: inset 2px 2px 6px rgba(0,0,0,0.08);
 }
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.04);
 }
 [data-theme="dark"] .card:hover {
-    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.15);
 }
 
 .card-title {
-    font-size: 12px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1.5px;
     color: var(--text-secondary);
     margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
 }
 
 .card-value {
-    font-size: 32px;
-    font-weight: 600;
+    font-size: 28px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .card-sub {
-    font-size: 13px;
+    font-size: 11px;
     color: var(--text-secondary);
     margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 /* Progress bar */
 .progress {
-    height: 6px;
+    height: 4px;
     background: var(--bg-tertiary);
-    border-radius: 3px;
+    border-radius: 0;
     margin-top: 12px;
     overflow: hidden;
+    border: 1px solid var(--border-color);
 }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--success));
-    border-radius: 3px;
+    background: var(--accent);
+    border-radius: 0;
     transition: width 0.3s;
 }
 
 /* Tasks list */
+/* --- Stalinist Grid --- */
 .task-list {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    background: var(--bg-tertiary);
+    border: 3px solid var(--border-color);
+    border-radius: 0;
     overflow: hidden;
 }
 
 .task-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 14px 20px;
+    border-bottom: 3px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: var(--bg-secondary);
 }
 
 .task-header h3 {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
+.task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0;
+    padding: 0;
+}
+
+/* Default task = horizontal row (dashboard list) */
 .task {
     display: flex;
+    flex-direction: row;
     align-items: center;
-    padding: 14px 20px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--border-color);
-    transition: background 0.2s;
+    transition: background 0.15s;
+    position: relative;
+    background: var(--bg-secondary);
+    gap: 12px;
 }
 
 .task:last-child {
@@ -355,16 +381,42 @@ body {
     background: var(--bg-tertiary);
 }
 
+/* Grid card = column layout (tasks page) */
+.task-grid .task {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    border-right: 3px solid var(--border-color);
+    border-bottom: 3px solid var(--border-color);
+    min-height: 130px;
+    box-shadow: inset 2px 2px 6px rgba(0,0,0,0.12);
+    gap: 0;
+}
+
+.task-grid .task:hover {
+    box-shadow: inset 1px 1px 3px rgba(0,0,0,0.06);
+}
+
+.task-status-stripe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+}
+.task-status-stripe.pending { background: var(--border-color); }
+.task-status-stripe.in_progress { background: var(--warning); }
+.task-status-stripe.done { background: var(--success); }
+
 .task-check {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    border-radius: 0;
     border: 2px solid var(--border-color);
-    margin-right: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 11px;
     flex-shrink: 0;
 }
 
@@ -380,40 +432,84 @@ body {
     color: white;
 }
 
+.task-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
 .task-content {
     flex: 1;
 }
 
 .task-title {
-    font-weight: 500;
-    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+    line-height: 1.3;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 .task-meta {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.task-desc-preview {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.4;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.task-card-footer {
+    margin-top: auto;
+    padding-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.task-card-footer i {
+    font-size: 12px;
+    color: var(--accent);
 }
 
 .task-phase {
     background: var(--bg-tertiary);
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 0;
+    border: 1px solid var(--border-color);
+    font-size: 10px;
     color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Activity log */
 .activity {
     background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border: 3px solid var(--border-color);
+    border-radius: 0;
     margin-top: 24px;
 }
 
 .activity-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: 600;
+    padding: 14px 20px;
+    border-bottom: 3px solid var(--border-color);
+    font-weight: 700;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
 }
 
 .activity-list {
@@ -463,14 +559,18 @@ body {
 /* Forms */
 .form-section {
     background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border: 3px solid var(--border-color);
+    border-radius: 0;
     padding: 20px;
     margin-top: 24px;
 }
 
 .form-section h3 {
-    font-size: 16px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-family: 'JetBrains Mono', monospace;
     margin-bottom: 16px;
 }
 
@@ -483,17 +583,18 @@ body {
 input[type="text"] {
     flex: 1;
     padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: 0;
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 input[type="text"]:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
+    box-shadow: none;
 }
 
 input[type="text"]::placeholder {
@@ -503,12 +604,12 @@ input[type="text"]::placeholder {
 textarea {
     width: 100%;
     padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: 0;
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-size: 14px;
-    font-family: inherit;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
     resize: vertical;
     min-height: 60px;
     box-sizing: border-box;
@@ -516,7 +617,7 @@ textarea {
 textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
+    box-shadow: none;
 }
 textarea::placeholder {
     color: var(--text-secondary);
@@ -526,10 +627,11 @@ textarea::placeholder {
     display: inline-block;
     background: var(--accent);
     color: white;
-    padding: 1px 7px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 0;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
     margin-left: 4px;
 }
 
@@ -545,17 +647,17 @@ textarea::placeholder {
 
 /* Terminal-style log panel */
 .log-panel {
-    background: #1e1e2e;
-    border-radius: 12px;
+    background: #1a1a1a;
+    border-radius: 0;
     margin-top: 24px;
     overflow: hidden;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-    border: 1px solid #313244;
+    box-shadow: none;
+    border: 3px solid #333;
 }
 .log-panel-header {
     padding: 10px 16px;
-    background: #181825;
-    border-bottom: 1px solid #313244;
+    background: #111;
+    border-bottom: 3px solid #333;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -566,14 +668,14 @@ textarea::placeholder {
     align-items: center;
 }
 .terminal-dots span {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 0;
     display: inline-block;
 }
-.terminal-dots .dot-red { background: #f38ba8; }
-.terminal-dots .dot-yellow { background: #f9e2af; }
-.terminal-dots .dot-green { background: #a6e3a1; }
+.terminal-dots .dot-red { background: #DA7756; }
+.terminal-dots .dot-yellow { background: #e8b749; }
+.terminal-dots .dot-green { background: #5cb85c; }
 .terminal-title {
     font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
@@ -585,11 +687,11 @@ textarea::placeholder {
     overflow-y: auto;
     padding: 4px 0;
     scrollbar-width: thin;
-    scrollbar-color: #45475a #1e1e2e;
+    scrollbar-color: #444 #1a1a1a;
 }
 .log-feed::-webkit-scrollbar { width: 6px; }
-.log-feed::-webkit-scrollbar-track { background: #1e1e2e; }
-.log-feed::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+.log-feed::-webkit-scrollbar-track { background: #1a1a1a; }
+.log-feed::-webkit-scrollbar-thumb { background: #444; border-radius: 0; }
 .log-entry {
     display: flex;
     gap: 8px;
@@ -697,10 +799,13 @@ textarea::placeholder {
 
 button {
     padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
+    border: 2px solid transparent;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -711,29 +816,36 @@ button {
 button:hover { filter: brightness(1.1); }
 button:active { transform: scale(0.98); }
 
-.btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { box-shadow: 0 4px 12px rgba(99,102,241,0.3); }
-.btn-success { background: var(--success); color: white; }
-.btn-success:hover { box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
-.btn-danger { background: var(--danger); color: white; }
-.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { box-shadow: none; filter: brightness(1.15); }
+.btn-success { background: var(--success); color: white; border-color: var(--success); }
+.btn-success:hover { box-shadow: none; filter: brightness(1.15); }
+.btn-danger { background: var(--danger); color: white; border-color: var(--danger); }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
 
 /* Global select styling */
 select {
     padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: 0;
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
     cursor: pointer;
     width: 100%;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
 }
 select:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
+    box-shadow: none;
 }
 input[type="number"] {
     padding: 10px 14px;
@@ -752,19 +864,19 @@ input[type="number"]:focus {
 }
 input[type="password"] {
     padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: 0;
     background: var(--bg-primary);
     color: var(--text-primary);
-    font-size: 14px;
-    font-family: monospace;
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
     width: 100%;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.15s;
 }
 input[type="password"]:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
+    box-shadow: none;
 }
 
 /* Styled scrollbars */
@@ -780,10 +892,12 @@ input[type="password"]:focus {
     padding: 12px 20px;
     background: var(--success);
     color: white;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    box-shadow: none;
+    border: 2px solid rgba(255,255,255,0.2);
     z-index: 1000;
     animation: toast-in 0.3s ease, toast-out 0.3s ease 2s forwards;
 }
@@ -792,10 +906,13 @@ input[type="password"]:focus {
 
 /* Settings-specific styles */
 .settings-label {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     margin-bottom: 4px;
     display: block;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .settings-grid {
     display: grid;
@@ -805,8 +922,9 @@ input[type="password"]:focus {
 }
 .settings-hint {
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: 11px;
     margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 /* Commit styling */
@@ -816,7 +934,8 @@ input[type="password"]:focus {
     color: var(--text-secondary);
     background: var(--bg-tertiary);
     padding: 2px 8px;
-    border-radius: 4px;
+    border-radius: 0;
+    border: 1px solid var(--border-color);
 }
 .commit-msg {
     font-weight: 500;
@@ -846,18 +965,19 @@ input[type="password"]:focus {
 /* Theme toggle */
 .theme-toggle {
     background: none;
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     padding: 8px 12px;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 0;
     color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
 }
 
 /* Session details */
 .session-card {
     background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border: 3px solid var(--border-color);
+    border-radius: 0;
     padding: 20px;
     margin-bottom: 16px;
 }
@@ -957,20 +1077,30 @@ input[type="password"]:focus {
     .cards {
         grid-template-columns: 1fr;
     }
+    .task-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
     .log-feed {
         max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .task-grid {
+        grid-template-columns: 1fr;
     }
 }
 
 .hamburger {
     display: none;
     background: none;
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     padding: 8px 12px;
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 0;
     color: var(--text-primary);
     font-size: 18px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
 /* Task detail expandable — slide transition */
@@ -1232,10 +1362,12 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
 <body>
     <div class="layout">
         <aside class="sidebar">
-            <div class="logo">
-                <span class="logo-pixel">A1</span> PocketCoder
-            </div>
-            <div class="logo-sub">Autonomous Gnome v0.2.0</div>
+            <div class="logo-ascii"><pre class="logo-art">&#9619;&#9608;&#9608;&#9608;&#9608;&#9608;&#9619;  &#9617;&#9612;
+&#9608;&#9619;   &#9619;&#9608; &#9617;&#9608;&#9612;
+&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608; &#9617;&#9608;&#9612;
+&#9608;&#9619;   &#9619;&#9608;  &#9608;&#9612;
+&#9608;&#9612;   &#9612;&#9608; &#9608;&#9608;&#9608;</pre></div>
+            <div class="logo-sub">pocketcoder // v0.2.3</div>
 
             <nav>
                 <div class="nav-section">
@@ -1259,9 +1391,7 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                     <a href="/commits" class="nav-item $nav_commits">
                         <i class="bi bi-git"></i> Commits
                     </a>
-                    <a href="/transform" class="nav-item $nav_transform">
-                        <i class="bi bi-magic"></i> Transform
-                    </a>
+                    <!-- Transform moved into Tasks page -->
                 </div>
 
                 <div class="nav-section">
@@ -1552,7 +1682,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif path == '/settings':
             self.send_page('settings')
         elif path == '/transform':
-            self.send_page('transform')
+            self.send_response(302)
+            self.send_header('Location', '/tasks')
+            self.end_headers()
         elif path == '/api/status':
             self.send_json_status()
         elif path.startswith('/api/log'):
@@ -1602,6 +1734,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.stop_agent()
             self.redirect('/')
 
+        elif re.match(r'^/delete-task/(task_\d+)$', self.path):
+            task_id = re.match(r'^/delete-task/(task_\d+)$', self.path).group(1)
+            tasks_mgr = TaskManager(PROJECT_DIR)
+            tasks_mgr.delete_task(task_id)
+            log_activity("Task deleted", task_id, "warning")
+            self.redirect('/tasks')
+
         elif self.path == '/add-tasks-bulk':
             lines_raw = params.get('tasks_bulk', [''])[0]
             if lines_raw.strip():
@@ -1638,7 +1777,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 added = 0
                 for t in tasks_list:
                     if t.get('title'):
-                        tasks_mgr.add_task(t['title'], description=t.get('description', ''))
+                        tasks_mgr.add_task(t['title'], description=t.get('description', ''), success_criteria=t.get('success_criteria'))
                         added += 1
                 log_activity("Transform confirmed", f"{added} tasks added", "success")
                 self.send_response(200)
@@ -1795,13 +1934,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
 
             tasks_html += f'''
-            <div class="task">
+            <a href="/task/{t.id}" class="task task-clickable" style="text-decoration:none;color:inherit">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
                     <div class="task-meta">{esc(t.id)} {pri_badge}</div>
                 </div>
-            </div>
+                <i class="bi bi-arrow-right" style="color:var(--text-secondary);font-size:12px"></i>
+            </a>
             '''
 
         if not tasks_html:
@@ -1844,7 +1984,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title">Dashboard</h1>
+            <h1 class="page-title">// Dashboard</h1>
             <div class="header-actions">
                 <span class="status {status_class}" id="status-badge">{status_text}</span>
                 <button class="theme-toggle" onclick="toggleTheme()">
@@ -1973,48 +2113,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 check_class = ''
                 check_icon = ''
 
-            desc = t.description[:100] if t.description else ''
+            desc = t.description[:80] if t.description else ''
             pri = getattr(t, 'priority', 0)
             pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
-            draggable = 'draggable="true"' if t.status != 'done' else ''
-
-            # Stage progress bar
-            stage_steps = ''
-            if t.status == 'done':
-                stage_steps = '<div class="stage-step done"></div><div class="stage-step done"></div><div class="stage-step done"></div>'
-            elif t.status == 'in_progress':
-                stage_steps = '<div class="stage-step done"></div><div class="stage-step active"></div><div class="stage-step"></div>'
-            else:
-                stage_steps = '<div class="stage-step"></div><div class="stage-step"></div><div class="stage-step"></div>'
-
-            # Task detail metadata
             phase_text = getattr(t, 'phase', '') or ''
-            criteria = getattr(t, 'success_criteria', '') or ''
-            created = getattr(t, 'created_at', '') or ''
-            completed = getattr(t, 'completed_at', '') or ''
-
-            detail_html = f'''
-            <div class="task-detail" id="detail-{t.id}">
-                <div class="task-stages">{stage_steps}</div>
-                <div class="task-detail-meta">
-                    <div><dt>Status</dt><dd>{esc(t.status)}</dd></div>
-                    <div><dt>Phase</dt><dd>{esc(phase_text) if phase_text else 'N/A'}</dd></div>
-                    <div><dt>Created</dt><dd>{esc(created[:10]) if created else 'N/A'}</dd></div>
-                    <div><dt>Completed</dt><dd>{esc(completed[:10]) if completed else '—'}</dd></div>
-                </div>
-                {f'<div class="task-criteria"><strong>Criteria:</strong> {esc(criteria)}</div>' if criteria else ''}
-                {f'<div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">{esc(desc)}</div>' if desc else ''}
-            </div>
-            '''
+            phase_tag = f'<span class="task-phase">{esc(phase_text)}</span>' if phase_text else ''
+            status_class = t.status.replace(' ', '_')
 
             tasks_html += f'''
-            <a href="/task/{t.id}" class="task task-clickable" {draggable} data-task-id="{t.id}" style="text-decoration:none;color:inherit">
-                <div class="task-check {check_class}">{check_icon}</div>
+            <a href="/task/{t.id}" class="task task-clickable" data-task-id="{t.id}" style="text-decoration:none;color:inherit">
+                <div class="task-status-stripe {status_class}"></div>
+                <div class="task-top-row">
+                    <div class="task-check {check_class}">{check_icon}</div>
+                    <div class="task-meta">{esc(t.id)} {pri_badge}</div>
+                    {phase_tag}
+                </div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
-                    <div class="task-meta">{esc(t.id)} {pri_badge}</div>
+                    {f'<div class="task-desc-preview">{esc(desc)}</div>' if desc else ''}
                 </div>
-                <i class="bi bi-chevron-right" style="color:var(--text-secondary);font-size:14px"></i>
+                <div class="task-card-footer">
+                    <span>{esc(t.status.replace("_", " ").upper())}</span>
+                    <i class="bi bi-arrow-right"></i>
+                </div>
             </a>
             '''
 
@@ -2033,7 +2154,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title">Tasks</h1>
+            <h1 class="page-title">// Tasks</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
@@ -2041,40 +2162,138 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         <div class="task-list">
             <div class="task-header">
-                <h3>All Tasks ({len(all_tasks)})</h3>
+                <h3>[ {len(all_tasks)} tasks ]</h3>
             </div>
-            {tasks_html if tasks_html else '<div class="empty"><i class="bi bi-inbox"></i><p>No tasks yet</p></div>'}
+            <div class="task-grid">
+            {tasks_html if tasks_html else '<div class="empty" style="grid-column:1/-1"><i class="bi bi-inbox"></i><p>No tasks yet</p></div>'}
+            </div>
         </div>
 
         {('<div class="task-list" style="margin-top:24px"><div class="task-header"><h3>Raw Thoughts</h3></div>' + thoughts_html + '</div>') if thoughts_html else ''}
 
         <div class="form-section">
-            <h3>Add Task</h3>
+            <h3>// Add Task</h3>
             <form method="POST" action="/add-task">
                 <div class="form-row">
-                    <input type="text" name="task" placeholder="Task title..." required>
-                    <button type="submit" class="btn-primary"><i class="bi bi-plus"></i> Add Task</button>
+                    <input type="text" name="task" placeholder="$ pca task add &quot;title&quot;" required>
+                    <button type="submit" class="btn-primary"><i class="bi bi-plus"></i> Add</button>
                 </div>
-                <textarea name="description" placeholder="Description (optional)..." rows="3"></textarea>
+                <textarea name="description" placeholder="description (optional)..." rows="3"></textarea>
             </form>
             <form method="POST" action="/add-thought" style="margin-top:12px">
                 <div class="form-row">
-                    <input type="text" name="thought" placeholder="Quick thought or idea...">
-                    <button type="submit" class="btn-secondary"><i class="bi bi-lightbulb"></i> Add Thought</button>
+                    <input type="text" name="thought" placeholder="$ pca think &quot;idea&quot;">
+                    <button type="submit" class="btn-secondary"><i class="bi bi-lightbulb"></i> Think</button>
                 </div>
             </form>
         </div>
 
         <div class="form-section">
-            <h3>Bulk Add Tasks</h3>
-            <p style="color:var(--text-secondary);font-size:12px;margin-bottom:12px">One task per line. Priorities auto-assigned.</p>
+            <h3>// Bulk Import</h3>
+            <p style="color:var(--text-secondary);font-size:11px;margin-bottom:12px;font-family:'JetBrains Mono',monospace">One task per line. Priorities auto-assigned.</p>
             <form method="POST" action="/add-tasks-bulk">
-                <textarea name="tasks_bulk" rows="6" placeholder="Add login page&#10;Write unit tests&#10;Fix responsive layout&#10;Deploy to staging"></textarea>
+                <textarea name="tasks_bulk" rows="4" placeholder="Add login page&#10;Write unit tests&#10;Fix responsive layout&#10;Deploy to staging"></textarea>
                 <div style="margin-top:12px">
-                    <button type="submit" class="btn-primary"><i class="bi bi-list-task"></i> Add All</button>
+                    <button type="submit" class="btn-primary"><i class="bi bi-list-task"></i> Import All</button>
                 </div>
             </form>
         </div>
+
+        <div class="form-section">
+            <h3>// AI Transform</h3>
+            <p style="color:var(--text-secondary);font-size:11px;margin-bottom:12px;font-family:'JetBrains Mono',monospace">
+                Write raw text, notes, ideas — AI breaks them into structured tasks.
+            </p>
+            <textarea id="transform-input" rows="5" placeholder="Example:&#10;I need a login page with email and password, then registration with validation,&#10;password reset via email, and unit tests for the whole auth module"></textarea>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+                <button class="btn-primary" onclick="doTransform()" id="transform-btn">
+                    <i class="bi bi-magic"></i> Transform
+                </button>
+                <span id="transform-status" style="font-size:11px;color:var(--text-secondary);font-family:'JetBrains Mono',monospace"></span>
+            </div>
+        </div>
+
+        <div id="transform-preview" style="display:none;margin-top:24px">
+            <div class="task-list">
+                <div class="task-header">
+                    <h3>[ preview ]</h3>
+                    <button class="btn-success" onclick="confirmTransform()">
+                        <i class="bi bi-check-all"></i> Add Selected
+                    </button>
+                </div>
+                <div id="preview-tasks" class="task-grid"></div>
+            </div>
+        </div>
+
+        <script>
+        let transformedTasks = [];
+
+        function doTransform() {{
+            const text = document.getElementById('transform-input').value.trim();
+            if (!text) return;
+            const btn = document.getElementById('transform-btn');
+            const status = document.getElementById('transform-status');
+            btn.disabled = true;
+            status.textContent = '> processing...';
+
+            fetch('/transform', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
+                body: 'text=' + encodeURIComponent(text)
+            }})
+            .then(r => r.json())
+            .then(data => {{
+                btn.disabled = false;
+                if (data.tasks && data.tasks.length > 0) {{
+                    transformedTasks = data.tasks;
+                    status.textContent = '> ' + data.tasks.length + ' tasks generated';
+                    renderPreview(data.tasks);
+                }} else {{
+                    status.textContent = '> ' + (data.error || 'No tasks generated');
+                }}
+            }})
+            .catch(err => {{
+                btn.disabled = false;
+                status.textContent = '> error: ' + err.message;
+            }});
+        }}
+
+        function renderPreview(tasks) {{
+            const container = document.getElementById('preview-tasks');
+            container.innerHTML = '';
+            tasks.forEach((t, i) => {{
+                const card = document.createElement('div');
+                card.className = 'task';
+                card.style.cssText = 'min-height:auto';
+                card.innerHTML = '<div class="task-top-row"><input type="checkbox" checked data-idx="' + i + '" style="width:16px;height:16px;cursor:pointer"></div><div class="task-content"><div class="task-title">' + escHtml(t.title) + '</div><div class="task-desc-preview">' + escHtml(t.description || '') + '</div></div>';
+                container.appendChild(card);
+            }});
+            document.getElementById('transform-preview').style.display = 'block';
+        }}
+
+        function confirmTransform() {{
+            const checks = document.querySelectorAll('#preview-tasks input[type=checkbox]');
+            const selected = [];
+            checks.forEach(cb => {{
+                if (cb.checked) selected.push(transformedTasks[parseInt(cb.dataset.idx)]);
+            }});
+            if (selected.length === 0) return;
+            fetch('/transform-confirm', {{
+                method: 'POST',
+                headers: {{'Content-Type': 'application/json'}},
+                body: JSON.stringify({{tasks: selected}})
+            }})
+            .then(r => r.json())
+            .then(data => {{
+                if (data.ok) {{
+                    document.getElementById('transform-status').textContent = '> ' + data.added + ' tasks added!';
+                    document.getElementById('transform-preview').style.display = 'none';
+                    document.getElementById('transform-input').value = '';
+                    setTimeout(() => location.reload(), 1000);
+                }}
+            }});
+        }}
+        </script>
         '''
 
     def build_task_detail_page(self, task_id):
@@ -2132,11 +2351,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if task_logs:
             time_span = f"{task_logs[0]['time']} — {task_logs[-1]['time']}"
 
+        # Live metrics from running agent
+        live_tokens_in = 0
+        live_tokens_out = 0
+        if is_active and AGENT_LOOP and hasattr(AGENT_LOOP, 'get_session_metrics'):
+            lm = AGENT_LOOP.get_session_metrics()
+            live_tokens_in = lm.get('tokens_in', 0)
+            live_tokens_out = lm.get('tokens_out', 0)
+
         # Sessions from checkpoint archives
         sessions_html = ''
         session_count = 0
-        total_tokens_in = 0
-        total_tokens_out = 0
+        total_tokens_in = live_tokens_in
+        total_tokens_out = live_tokens_out
         checkpoints_dir = PROJECT_DIR / '.a1' / 'checkpoints'
         if checkpoints_dir.exists():
             for f in sorted(checkpoints_dir.glob('session_*.json')):
@@ -2201,6 +2428,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             {f'<span style="color:var(--text-secondary);font-size:13px">Priority #{pri}</span>' if pri else ''}
             {'<button class="btn-primary" id="start-task-btn" onclick="startTask()" style="margin-left:auto"><i class="bi bi-play-fill"></i> Start Task</button>' if task.status in ('pending', 'in_progress') and not is_active else ''}
             {'<button class="btn-secondary" id="stop-task-btn" onclick="stopTask()" style="margin-left:8px"><i class="bi bi-stop-fill"></i> Stop</button>' if is_active else ''}
+            {'<button class="btn-danger" onclick="deleteTask()" style="margin-left:8px"><i class="bi bi-trash"></i> Delete</button>' if not is_active else ''}
         </div>
 
         <div class="td-grid">
@@ -2266,7 +2494,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         }}
 
         function stopTask() {{
-            fetch('/stop', {{method: 'POST'}});
+            fetch('/stop', {{method: 'POST'}}).then(() => location.reload());
+        }}
+
+        function deleteTask() {{
+            if (!confirm('Delete this task?')) return;
+            fetch('/delete-task/' + taskPageId, {{method: 'POST'}})
+                .then(() => {{ window.location.href = '/tasks'; }});
         }}
 
         function updateTaskLog() {{
@@ -2391,7 +2625,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title"><i class="bi bi-terminal"></i> Sessions</h1>
+            <h1 class="page-title">// Sessions</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
@@ -2451,7 +2685,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title"><i class="bi bi-journal-text"></i> Activity Log</h1>
+            <h1 class="page-title">// Activity Log</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
@@ -2541,7 +2775,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title"><i class="bi bi-git"></i> Git Commits</h1>
+            <h1 class="page-title">// Commits</h1>
             <div class="header-actions">
                 {f'<span style="font-size:13px;color:var(--text-secondary)"><i class="bi bi-diagram-2"></i> {esc(branch)}</span>' if branch else ''}
                 <button class="theme-toggle" onclick="toggleTheme()">
@@ -2584,7 +2818,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         return f'''
         <div class="header">
-            <h1 class="page-title"><i class="bi bi-gear"></i> Settings</h1>
+            <h1 class="page-title">// Settings</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
@@ -2745,7 +2979,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def build_transform_page(self):
         return '''
         <div class="header">
-            <h1 class="page-title"><i class="bi bi-magic"></i> Transform</h1>
+            <h1 class="page-title">// Transform</h1>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars"></i>
             </button>
@@ -2869,12 +3103,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         prompt = f'''Break the following text into structured tasks for a software project.
 Return ONLY valid JSON array, no other text. Each task object must have:
 - "title": short task title (imperative, e.g. "Add login page")
-- "description": 1-2 sentence description
+- "description": 1-2 sentence description of what needs to be done
+- "success_criteria": how to verify the task is done (e.g. "pytest passes", "page renders at /login", "API returns 200")
 
 Text to transform:
 {raw_text}
 
-Return format: [{{"title": "...", "description": "..."}}, ...]'''
+Return format: [{{"title": "...", "description": "...", "success_criteria": "..."}}, ...]'''
 
         try:
             env = os.environ.copy()
@@ -3107,15 +3342,43 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
 
         log_activity("Task started", task_id, "success")
 
-        # Start agent if not running
+        # Start agent for this one task only
         if not AGENT_RUNNING:
-            self.start_agent()
+            self._start_single_task_agent(task_id)
 
         # Return JSON (called via fetch from task detail page)
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps({"ok": True, "task_id": task_id}).encode('utf-8'))
+
+    def _start_single_task_agent(self, task_id):
+        """Start agent for ONE task only (max_sessions=1)"""
+        global AGENT_RUNNING, AGENT_LOOP
+        if not AGENT_RUNNING:
+            AGENT_LOG_BUFFER.clear()
+            log_activity("Agent started", f"single task: {task_id}", "success")
+
+            def run():
+                global AGENT_RUNNING, AGENT_LOOP
+                AGENT_RUNNING = True
+                try:
+                    from .config import Config
+                    from .loop import SessionLoop
+                    config = Config(PROJECT_DIR)
+                    resolved = config.resolve()
+                    resolved['max_sessions'] = 1
+                    loop = SessionLoop(project_dir=PROJECT_DIR, **resolved)
+                    loop._log_callback = _on_agent_line
+                    AGENT_LOOP = loop
+                    loop.start()
+                finally:
+                    AGENT_RUNNING = False
+                    AGENT_LOOP = None
+                    log_activity("Agent stopped", f"task: {task_id}", "warning")
+
+            thread = threading.Thread(target=run, daemon=True)
+            thread.start()
 
     def stop_agent(self):
         global AGENT_RUNNING, AGENT_LOOP
