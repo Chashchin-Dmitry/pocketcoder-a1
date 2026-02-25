@@ -5,8 +5,10 @@ PocketCoder-A1 Dashboard — Full-featured Web UI
 
 import html as html_mod
 import json
+import re
 import socket
 import threading
+import time as _time
 import webbrowser
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -22,6 +24,24 @@ AGENT_RUNNING = False
 AGENT_LOOP = None  # Reference to SessionLoop for stop control
 ACTIVITY_LOG = []  # Live activity log
 AGENT_LOG_BUFFER = []  # Live agent output lines for dashboard
+
+# Cache current task_id for tagging log entries (refreshes every 2s)
+_TASK_CACHE = {"task_id": None, "ts": 0}
+
+
+def _get_current_task_id():
+    """Get current task_id from checkpoint (cached 2s)"""
+    now = _time.time()
+    if now - _TASK_CACHE["ts"] < 2.0:
+        return _TASK_CACHE["task_id"]
+    _TASK_CACHE["ts"] = now
+    if AGENT_LOOP and hasattr(AGENT_LOOP, 'checkpoint'):
+        try:
+            cp = AGENT_LOOP.checkpoint.load()
+            _TASK_CACHE["task_id"] = cp.get("current_task")
+        except Exception:
+            pass
+    return _TASK_CACHE["task_id"]
 
 
 def esc(text: str) -> str:
@@ -70,6 +90,7 @@ def _on_agent_line(line: str, event_type: str = None):
         "time": datetime.now().strftime("%H:%M:%S"),
         "line": stripped,
         "type": event_type if event_type else _classify_line(line),
+        "task_id": _get_current_task_id(),
     }
     AGENT_LOG_BUFFER.append(entry)
     if len(AGENT_LOG_BUFFER) > 500:
@@ -78,32 +99,32 @@ def _on_agent_line(line: str, event_type: str = None):
 
 CSS = '''
 :root {
-    --bg-primary: #f8f9fa;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #e9ecef;
-    --text-primary: #212529;
-    --text-secondary: #6c757d;
-    --border-color: #dee2e6;
-    --accent: #6366f1;
-    --accent-light: #818cf8;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
+    --bg-primary: #FAFAF9;
+    --bg-secondary: #FFFFFF;
+    --bg-tertiary: #F0EFED;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6B6B;
+    --border-color: #E5E3DF;
+    --accent: #DA7756;
+    --accent-light: #E8956A;
+    --success: #2E8B57;
+    --warning: #D4940A;
+    --danger: #D94F4F;
 }
 
 [data-theme="dark"] {
-    --bg-primary: #1a1a2e;
-    --bg-secondary: #16213e;
-    --bg-tertiary: #0f0f23;
-    --text-primary: #f8f9fa;
-    --text-secondary: #9ca3af;
-    --border-color: #374151;
+    --bg-primary: #191919;
+    --bg-secondary: #262626;
+    --bg-tertiary: #1E1E1E;
+    --text-primary: #ECECEC;
+    --text-secondary: #8E8E8E;
+    --border-color: #333333;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
@@ -454,7 +475,7 @@ input[type="text"] {
 input[type="text"]:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
 }
 
 input[type="text"]::placeholder {
@@ -477,7 +498,7 @@ textarea {
 textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
 }
 textarea::placeholder {
     color: var(--text-secondary);
@@ -536,7 +557,7 @@ textarea::placeholder {
 .terminal-dots .dot-yellow { background: #f9e2af; }
 .terminal-dots .dot-green { background: #a6e3a1; }
 .terminal-title {
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
     color: #6c7086;
     letter-spacing: 0.5px;
@@ -555,7 +576,7 @@ textarea::placeholder {
     display: flex;
     gap: 8px;
     padding: 3px 16px;
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
     align-items: flex-start;
     line-height: 1.5;
@@ -605,7 +626,7 @@ textarea::placeholder {
 .log-empty {
     padding: 20px 16px;
     color: #585b70;
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
     text-align: center;
 }
@@ -613,7 +634,7 @@ textarea::placeholder {
     max-height: 300px;
     overflow-y: auto;
     padding: 12px 16px;
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 11px;
     white-space: pre-wrap;
     word-break: break-all;
@@ -622,7 +643,7 @@ textarea::placeholder {
     border-top: 1px solid #313244;
 }
 .log-toggle {
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 11px;
     color: #89b4fa;
     cursor: pointer;
@@ -647,7 +668,7 @@ textarea::placeholder {
     box-shadow: 1px 0 0 0 currentColor, 0 1px 0 0 currentColor;
 }
 .log-label {
-    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -694,7 +715,7 @@ select {
 select:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
 }
 input[type="number"] {
     padding: 10px 14px;
@@ -709,7 +730,7 @@ input[type="number"] {
 input[type="number"]:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
 }
 input[type="password"] {
     padding: 10px 14px;
@@ -725,7 +746,7 @@ input[type="password"] {
 input[type="password"]:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(218,119,86,0.2);
 }
 
 /* Styled scrollbars */
@@ -772,7 +793,7 @@ input[type="password"]:focus {
 
 /* Commit styling */
 .commit-hash {
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
     font-size: 12px;
     color: var(--text-secondary);
     background: var(--bg-tertiary);
@@ -992,6 +1013,190 @@ input[type="password"]:focus {
 .task-clickable {
     cursor: pointer;
 }
+
+/* Task Detail Page */
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 16px;
+    transition: color 0.2s;
+}
+.back-link:hover { color: var(--accent); }
+
+.task-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.task-detail-header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    flex: 1;
+}
+.td-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.td-badge.pending { background: var(--bg-tertiary); color: var(--text-secondary); }
+.td-badge.in_progress { background: var(--warning); color: #fff; }
+.td-badge.done { background: var(--success); color: #fff; }
+
+.td-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+@media (max-width: 768px) { .td-grid { grid-template-columns: 1fr; } }
+
+.td-info {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+}
+.td-info-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+.td-info-value {
+    font-size: 14px;
+    margin-bottom: 14px;
+}
+.td-info-value:last-child { margin-bottom: 0; }
+
+.td-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.td-metric {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+.td-metric-val {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent);
+}
+.td-metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.td-log-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+.td-log-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.td-log-body {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 8px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+}
+.td-log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 3px 16px;
+}
+.td-log-entry:hover { background: var(--bg-tertiary); }
+.td-log-time {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-size: 11px;
+}
+.td-log-icon {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+.td-log-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    min-width: 44px;
+}
+.td-log-text {
+    flex: 1;
+    word-break: break-all;
+    color: var(--text-primary);
+}
+.td-log-empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.td-sessions {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.td-sessions-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 14px;
+}
+.td-session-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+}
+.td-session-item:last-child { border-bottom: none; }
+.td-session-num {
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 70px;
+}
+.td-session-meta {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
 '''
 
 HTML_TEMPLATE = Template('''<!DOCTYPE html>
@@ -1000,6 +1205,9 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PocketCoder-A1 Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>''' + CSS + '''</style>
 </head>
@@ -1257,6 +1465,8 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
             updateStatus();
         } else if (pageName === 'tasks') {
             // No auto-reload on tasks page (drag-drop needs stable DOM)
+        } else if (pageName === 'task_detail') {
+            // Task detail has its own AJAX polling (injected by build_task_detail_page)
         } else {
             setTimeout(() => location.reload(), 5000);
         }
@@ -1330,6 +1540,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json_log()
         elif path == '/api/config':
             self.send_json_config()
+        elif re.match(r'^/api/task/(task_\d+)$', path):
+            task_id = re.match(r'^/api/task/(task_\d+)$', path).group(1)
+            self.send_json_task(task_id)
+        elif re.match(r'^/task/(task_\d+)$', path):
+            task_id = re.match(r'^/task/(task_\d+)$', path).group(1)
+            self.send_page('task_detail', task_id=task_id)
         else:
             self.send_error(404)
 
@@ -1459,13 +1675,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header('Location', location)
         self.end_headers()
 
-    def send_page(self, page):
+    def send_page(self, page, task_id=None):
         theme = 'light'  # Default light theme
-        content = self.build_content(page)
+        content = self.build_content(page, task_id=task_id)
 
         nav_active = {
             'nav_dashboard': 'active' if page == 'dashboard' else '',
-            'nav_tasks': 'active' if page == 'tasks' else '',
+            'nav_tasks': 'active' if page in ('tasks', 'task_detail') else '',
             'nav_sessions': 'active' if page == 'sessions' else '',
             'nav_log': 'active' if page == 'log' else '',
             'nav_commits': 'active' if page == 'commits' else '',
@@ -1485,11 +1701,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
 
-    def build_content(self, page):
+    def build_content(self, page, task_id=None):
         if page == 'dashboard':
             return self.build_dashboard()
         elif page == 'tasks':
             return self.build_tasks_page()
+        elif page == 'task_detail' and task_id:
+            return self.build_task_detail_page(task_id)
         elif page == 'sessions':
             return self.build_sessions_page()
         elif page == 'log':
@@ -1753,15 +1971,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             '''
 
             tasks_html += f'''
-            <div class="task task-clickable" {draggable} data-task-id="{t.id}" onclick="toggleTaskDetail('{t.id}')">
+            <a href="/task/{t.id}" class="task task-clickable" {draggable} data-task-id="{t.id}" style="text-decoration:none;color:inherit">
                 <div class="task-check {check_class}">{check_icon}</div>
                 <div class="task-content">
                     <div class="task-title">{esc(t.title)}</div>
                     <div class="task-meta">{esc(t.id)} {pri_badge}</div>
                 </div>
-                <i class="bi bi-chevron-down" style="color:var(--text-secondary);font-size:14px"></i>
-            </div>
-            {detail_html}
+                <i class="bi bi-chevron-right" style="color:var(--text-secondary);font-size:14px"></i>
+            </a>
             '''
 
         thoughts_html = ''
@@ -1810,6 +2027,214 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 </div>
             </form>
         </div>
+        '''
+
+    def build_task_detail_page(self, task_id):
+        """Full task detail page with logs, metrics, sessions"""
+        tasks_mgr = TaskManager(PROJECT_DIR)
+        all_tasks = tasks_mgr.get_tasks()
+        task = None
+        for t in all_tasks:
+            if t.id == task_id:
+                task = t
+                break
+        if not task:
+            return '<div class="main"><h1>Task not found</h1><a href="/tasks" class="back-link"><i class="bi bi-arrow-left"></i> Back to Tasks</a></div>'
+
+        # Status badge
+        badge_cls = task.status.replace(' ', '_')
+        status_label = task.status.replace('_', ' ').title()
+
+        # Task info
+        desc = task.description or 'No description'
+        criteria = task.success_criteria or 'N/A'
+        phase = getattr(task, 'phase', '') or 'N/A'
+        created = task.created_at[:16].replace('T', ' ') if task.created_at else 'N/A'
+        completed = task.completed_at[:16].replace('T', ' ') if task.completed_at else '—'
+        pri = getattr(task, 'priority', 0) or 0
+
+        # Filtered logs from buffer
+        task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
+
+        # Log type colors and labels
+        label_map = {
+            'read': 'READ', 'edit': 'EDIT', 'write': 'WRITE',
+            'bash': 'BASH', 'thinking': 'THINK', 'text': 'OUT',
+            'metric': 'METRIC', 'verify': 'CHECK',
+        }
+        color_map = {
+            'read': '#89b4fa', 'edit': '#DA7756', 'write': '#2E8B57',
+            'bash': '#b392f0', 'thinking': '#D4940A', 'text': '#6B6B6B',
+            'metric': '#89dceb', 'verify': '#2E8B57',
+        }
+
+        # Derive metrics from logs
+        tool_count = len([e for e in task_logs if e.get('type') in ('read', 'edit', 'write', 'bash')])
+        time_span = '—'
+        if task_logs:
+            time_span = f"{task_logs[0]['time']} — {task_logs[-1]['time']}"
+
+        # Sessions from checkpoint archives
+        sessions_html = ''
+        session_count = 0
+        total_tokens_in = 0
+        total_tokens_out = 0
+        checkpoints_dir = PROJECT_DIR / '.a1' / 'checkpoints'
+        if checkpoints_dir.exists():
+            for f in sorted(checkpoints_dir.glob('session_*.json')):
+                try:
+                    data = json.loads(f.read_text())
+                    if data.get('current_task') == task_id:
+                        session_count += 1
+                        sn = data.get('session', '?')
+                        sm = data.get('session_metrics', {})
+                        tok_in = sm.get('tokens_in', 0)
+                        tok_out = sm.get('tokens_out', 0)
+                        dur = sm.get('session_duration', 0)
+                        tools = sm.get('tools_used', 0)
+                        total_tokens_in += tok_in
+                        total_tokens_out += tok_out
+                        dur_str = f'{dur // 60}m {dur % 60}s' if dur >= 60 else f'{dur}s'
+                        def _ft(n):
+                            if n >= 1000000: return f'{n/1000000:.1f}M'
+                            if n >= 1000: return f'{n/1000:.1f}K'
+                            return str(n)
+                        sessions_html += f'''
+                        <div class="td-session-item">
+                            <span class="td-session-num">Session #{sn}</span>
+                            <div class="td-session-meta">
+                                <span><i class="bi bi-lightning-charge"></i> {_ft(tok_in)}/{_ft(tok_out)}</span>
+                                <span><i class="bi bi-stopwatch"></i> {dur_str}</span>
+                                <span><i class="bi bi-tools"></i> {tools} tools</span>
+                            </div>
+                            <span class="status {'status-completed' if data.get('status') == 'COMPLETED' else 'status-running'}"
+                                  style="font-size:11px;padding:3px 10px">{esc(data.get('status', '?'))}</span>
+                        </div>'''
+                except Exception:
+                    pass
+
+        # Format token totals
+        def _ft(n):
+            if n >= 1000000: return f'{n/1000000:.1f}M'
+            if n >= 1000: return f'{n/1000:.1f}K'
+            return str(n)
+
+        # Build log entries HTML
+        log_html = ''
+        for e in task_logs[-100:]:
+            etype = e.get('type', 'text')
+            label = label_map.get(etype, 'LOG')
+            color = color_map.get(etype, '#6B6B6B')
+            log_html += f'''<div class="td-log-entry">
+                <span class="td-log-time">{esc(e["time"])}</span>
+                <span class="td-log-icon" style="background:{color}"></span>
+                <span class="td-log-label" style="color:{color}">{label}</span>
+                <span class="td-log-text">{esc(e["line"][:200])}</span>
+            </div>'''
+
+        # Check if this is the active task
+        is_active = False
+        if AGENT_LOOP and hasattr(AGENT_LOOP, 'checkpoint'):
+            try:
+                cp = AGENT_LOOP.checkpoint.load()
+                is_active = cp.get('current_task') == task_id and AGENT_RUNNING
+            except Exception:
+                pass
+
+        active_dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--success);margin-left:8px;animation:pulse 1.5s infinite"></span>' if is_active else ''
+
+        return f'''
+        <a href="/tasks" class="back-link"><i class="bi bi-arrow-left"></i> Back to Tasks</a>
+
+        <div class="task-detail-header">
+            <h1>{esc(task.title)}{active_dot}</h1>
+            <span class="td-badge {badge_cls}">{status_label}</span>
+            {f'<span style="color:var(--text-secondary);font-size:13px">Priority #{pri}</span>' if pri else ''}
+        </div>
+
+        <div class="td-grid">
+            <div class="td-info">
+                <div class="td-info-label">Description</div>
+                <div class="td-info-value">{esc(desc)}</div>
+                <div class="td-info-label">Success Criteria</div>
+                <div class="td-info-value">{esc(criteria)}</div>
+                <div class="td-info-label">Phase</div>
+                <div class="td-info-value">{esc(phase)}</div>
+                <div class="td-info-label">Created</div>
+                <div class="td-info-value">{esc(created)}</div>
+                <div class="td-info-label">Completed</div>
+                <div class="td-info-value">{esc(completed)}</div>
+            </div>
+            <div class="td-metrics">
+                <div class="td-metric">
+                    <div class="td-metric-val">{tool_count}</div>
+                    <div class="td-metric-label">Tool Calls</div>
+                </div>
+                <div class="td-metric">
+                    <div class="td-metric-val">{session_count}</div>
+                    <div class="td-metric-label">Sessions</div>
+                </div>
+                <div class="td-metric">
+                    <div class="td-metric-val">{_ft(total_tokens_in)}</div>
+                    <div class="td-metric-label">Tokens In</div>
+                </div>
+                <div class="td-metric">
+                    <div class="td-metric-val">{_ft(total_tokens_out)}</div>
+                    <div class="td-metric-label">Tokens Out</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="td-log-section">
+            <div class="td-log-header">
+                <span><i class="bi bi-terminal"></i> Execution Log</span>
+                <span style="font-size:12px;color:var(--text-secondary)">{len(task_logs)} entries{' — LIVE' if is_active else ''}</span>
+            </div>
+            <div class="td-log-body" id="task-log-body">
+                {log_html if log_html else '<div class="td-log-empty"><i class="bi bi-inbox"></i><br>No log entries for this task yet</div>'}
+            </div>
+        </div>
+
+        {f"""<div class="td-sessions">
+            <div class="td-sessions-header"><i class="bi bi-clock-history"></i> Session History</div>
+            {sessions_html}
+        </div>""" if sessions_html else ''}
+
+        <script>
+        var taskPageId = '{task_id}';
+        var taskLogIndex = 0;
+        function updateTaskLog() {{
+            fetch('/api/log?since=' + taskLogIndex)
+                .then(r => r.json())
+                .then(data => {{
+                    if (data.entries && data.entries.length > 0) {{
+                        var filtered = data.entries.filter(e => e.task_id === taskPageId);
+                        if (filtered.length > 0) {{
+                            var container = document.getElementById('task-log-body');
+                            var emptyEl = container.querySelector('.td-log-empty');
+                            if (emptyEl) emptyEl.remove();
+                            var labelMap = {{'read':'READ','edit':'EDIT','write':'WRITE','bash':'BASH','thinking':'THINK','text':'OUT','metric':'METRIC','verify':'CHECK'}};
+                            var colorMap = {{'read':'#89b4fa','edit':'#DA7756','write':'#2E8B57','bash':'#b392f0','thinking':'#D4940A','text':'#6B6B6B','metric':'#89dceb','verify':'#2E8B57'}};
+                            filtered.forEach(e => {{
+                                var et = e.type || 'text';
+                                var label = labelMap[et] || 'LOG';
+                                var color = colorMap[et] || '#6B6B6B';
+                                var line = e.line || '';
+                                if (line.length > 200) line = line.substring(0, 200) + '...';
+                                var html = '<div class="td-log-entry"><span class="td-log-time">' + (e.time||'') + '</span><span class="td-log-icon" style="background:' + color + '"></span><span class="td-log-label" style="color:' + color + '">' + label + '</span><span class="td-log-text">' + line.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span></div>';
+                                container.insertAdjacentHTML('beforeend', html);
+                            }});
+                            container.scrollTop = container.scrollHeight;
+                        }}
+                        taskLogIndex = data.total;
+                    }}
+                }}).catch(() => {{}});
+        }}
+        setInterval(updateTaskLog, 2000);
+        // Auto-scroll on load
+        var logBody = document.getElementById('task-log-body');
+        if (logBody) logBody.scrollTop = logBody.scrollHeight;
+        </script>
         '''
 
     def build_sessions_page(self):
@@ -2454,6 +2879,63 @@ Return format: [{{"title": "...", "description": "..."}}, ...]'''
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode('utf-8'))
+
+    def send_json_task(self, task_id):
+        """Return task detail JSON with logs, metrics, sessions"""
+        tasks_mgr = TaskManager(PROJECT_DIR)
+        task = None
+        for t in tasks_mgr.get_tasks():
+            if t.id == task_id:
+                task = t
+                break
+        if not task:
+            self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Task not found"}).encode('utf-8'))
+            return
+
+        # Filtered logs
+        task_logs = [e for e in AGENT_LOG_BUFFER if e.get('task_id') == task_id]
+
+        # Metrics from logs
+        tool_types = {}
+        for e in task_logs:
+            et = e.get('type', 'text')
+            tool_types[et] = tool_types.get(et, 0) + 1
+
+        # Sessions from archives
+        sessions = []
+        checkpoints_dir = PROJECT_DIR / '.a1' / 'checkpoints'
+        if checkpoints_dir.exists():
+            for f in sorted(checkpoints_dir.glob('session_*.json')):
+                try:
+                    data = json.loads(f.read_text())
+                    if data.get('current_task') == task_id:
+                        sessions.append({
+                            'session': data.get('session'),
+                            'status': data.get('status'),
+                            'metrics': data.get('session_metrics', {}),
+                        })
+                except Exception:
+                    pass
+
+        result = {
+            'task': task.to_dict(),
+            'logs': task_logs[-200:],
+            'log_count': len(task_logs),
+            'metrics': {
+                'tool_types': tool_types,
+                'tool_count': sum(1 for e in task_logs if e.get('type') in ('read', 'edit', 'write', 'bash')),
+            },
+            'sessions': sessions,
+            'is_active': AGENT_RUNNING and _get_current_task_id() == task_id,
+        }
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(result).encode('utf-8'))
 
     def send_json_config(self):
         """Return current config (API key masked)"""
