@@ -143,4 +143,31 @@ class CheckpointManager:
             for s in cp["next_steps"]:
                 lines.append(f"  - {s}")
 
+        # Session history — what was done in previous sessions
+        # Include as many recent sessions as fit in ~8000 chars
+        history = cp.get("session_history", [])
+        if history:
+            lines.append("")
+            lines.append("## Previous Sessions (DO NOT repeat this work):")
+            history_lines = []
+            total_chars = 0
+            for h in reversed(history):
+                sn = h.get("session", "?")
+                edits = h.get("edits", [])
+                result = h.get("result", "")
+                tools = h.get("tools", 0)
+                dur = h.get("duration", 0)
+                entry = [f"  Session #{sn} ({dur}s, {tools} tools):"]
+                if edits:
+                    entry.append(f"    Files edited: {', '.join(edits[:10])}")
+                if result:
+                    entry.append(f"    Result: {result[:200]}")
+                entry_text = "\n".join(entry)
+                if total_chars + len(entry_text) > 8000:
+                    break
+                history_lines.insert(0, entry_text)
+                total_chars += len(entry_text)
+            for hl in history_lines:
+                lines.append(hl)
+
         return "\n".join(lines)

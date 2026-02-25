@@ -23,10 +23,10 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Version | 0.2.0 |
+| Version | 0.2.3 |
 | Codename | Autonomous Gnome |
 | Language | Python 3.8+ |
-| Total lines | ~4882 across 13 modules |
+| Total lines | ~6922 across 14 modules |
 | License | MIT |
 | Author | Dmitry Chashchin |
 | Repository | https://github.com/Chashchin-Dmitry/pocketcoder-a1 |
@@ -37,12 +37,13 @@
 |--------|-------|---------|
 | `a1/__init__.py` | 6 | Version and codename constants |
 | `a1/loop.py` | ~1152 | Core: subprocess management, stream parsing, verification, 3 providers |
-| `a1/dashboard.py` | ~3186 | Web UI: 8 pages, 20+ API endpoints, 6 metric cards, live logs |
+| `a1/dashboard.py` | ~3454 | Web UI: 7 pages, 22+ API endpoints, 6 metric cards, live logs, brutalist grid layout |
 | `a1/validator.py` | 362 | Validation: syntax, tests, lint, build, git, criteria checks |
 | `a1/cli.py` | 369 | CLI: 10 subcommands with argparse |
-| `a1/tasks.py` | 212 | Task CRUD: add, update, reorder, priority, progress |
+| `a1/tasks.py` | 223 | Task CRUD: add, delete, update, reorder, priority, progress, success_criteria |
 | `a1/checkpoint.py` | 147 | Session state: load, save, archive, summary |
 | `a1/config.py` | 127 | Configuration: load/save/resolve with priority chain |
+| `a1/tester/__init__.py` | 7 | Tester package exports |
 | `a1/tester/runner.py` | 420 | Vision QA: 7 scenarios with Playwright |
 | `a1/tester/scenarios.py` | 204 | Scenario definitions (data classes) |
 | `a1/tester/report.py` | 194 | HTML/JSON report generation |
@@ -53,14 +54,25 @@
 
 - Autonomous work without human intervention (Claude CLI subprocess)
 - Real-time web dashboard with 6 metric cards, live terminal log, and task management
+- Stalinist brutalist grid layout: CSS grid with rectangular task cards, border-radius:0 everywhere
+- ASCII pixel A1 logo (BVM-style block characters)
+- JetBrains Mono + Inter fonts for a developer-centric aesthetic
 - Three AI providers: Claude Max (CLI), Claude API, Ollama (local)
 - Post-session verification with 3-tier gate ("don't trust, verify")
 - Anti-infinite-loop protection (baseline comparison + max 3 retries + force-accept)
 - Context monitoring with auto-checkpoint at 70% context window usage
 - Vision-based QA tester using Playwright and Claude Vision
 - Checkpoint/task persistence between sessions
+- Task detail page with per-task logs, metrics, sessions, start/stop/delete buttons
+- Delete task support (POST /delete-task/{task_id})
+- Start single task (POST /start-task/{task_id}, max_sessions=1, no chaining)
+- Bulk task import (POST /add-tasks-bulk, one task per line)
+- Transform generates success_criteria and is integrated into Tasks page
 - HTML5 drag-and-drop task reordering
-- AI-powered text-to-tasks transformation
+- All page titles use "// Page Name" format (e.g., "// Dashboard", "// Tasks")
+- Dashboard task cards are clickable links to /task/{id}
+- Live tokens displayed in task detail page from running agent
+- BrokenPipeError suppressed for clean error handling
 
 ---
 
@@ -221,7 +233,7 @@ playwright install chromium
 
 ```bash
 pca --version
-# pca 0.2.0
+# pca 0.2.3
 ```
 
 ### Quick Start
@@ -396,14 +408,15 @@ Requires the dashboard to be running (`pca ui`) before executing tests.
 
 ## 5. Dashboard Pages
 
-The dashboard is a single-binary web server built on Python's `http.server`. All HTML is generated server-side using `string.Template` with CSS variables for theming. AJAX polling handles live updates.
+The dashboard is a single-binary web server built on Python's `http.server`. All HTML is generated server-side using `string.Template` with CSS variables for theming. AJAX polling handles live updates. The UI uses a stalinist brutalist design with CSS grid layout, JetBrains Mono + Inter fonts, and border-radius:0 throughout. An ASCII pixel A1 logo (BVM-style block characters) is displayed in the sidebar.
 
 ### Page 1: Dashboard (`/`)
 
-The main overview page with 6 metric cards, task list, quick-add form, agent controls, message queue, terminal log panel, and activity log.
+The main overview page with 6 metric cards, task list, quick-add form, agent controls, message queue, terminal log panel, and activity log. Page title: "// Dashboard".
 
 **Features:**
 - 6 metric cards: Tasks (progress bar), Session (#N + status), Tokens (in/out + context %), Cost ($), Duration (live timer), Files (modified count)
+- Task list with clickable links to `/task/{id}` detail pages
 - Start/Stop agent buttons (toggle based on state)
 - Quick Add form (title + description textarea)
 - Message to Agent form (visible only when agent is running)
@@ -414,9 +427,10 @@ The main overview page with 6 metric cards, task list, quick-add form, agent con
 
 ### Page 2: Tasks (`/tasks`)
 
-Full task management page with drag-and-drop reordering.
+Full task management page with drag-and-drop reordering, bulk import, and integrated AI Transform.
 
 **Features:**
+- Stalinist brutalist grid layout with rectangular task cards (CSS grid)
 - All tasks sorted by status (pending first) then priority
 - Each task links to its detail page (`/task/{id}`)
 - Priority badges (#N)
@@ -425,7 +439,8 @@ Full task management page with drag-and-drop reordering.
 - Raw Thoughts section (if any exist)
 - Add Task form (title + description)
 - Add Thought form
-- Bulk Add Tasks textarea (one task per line, auto-priority)
+- Bulk Add Tasks textarea (one task per line, auto-priority, POST /add-tasks-bulk)
+- AI Transform section (moved from separate page): text input, AI generates tasks with success_criteria, preview and confirm
 
 ### Page 3: Task Detail (`/task/{task_id}`)
 
@@ -435,9 +450,11 @@ Dedicated page for a single task with execution logs, metrics, and session histo
 - Task metadata: description, success criteria, phase, created/completed dates
 - Status badge (pending/in_progress/done) with color coding
 - Priority display
-- Start Task button (starts agent on this specific task)
+- Start Task button (POST /start-task/{task_id}, max_sessions=1, does not chain to other tasks)
 - Stop button (if task is currently active)
+- Delete Task button (POST /delete-task/{task_id})
 - 4 metric cards: Tool Calls, Sessions, Tokens In, Tokens Out
+- Live token metrics from running agent displayed in real-time
 - Execution Log: filtered entries for this task with colored type labels
 - Live log updates via AJAX polling (2s interval) when task is active
 - Session History: all sessions that worked on this task with per-session metrics
@@ -491,14 +508,15 @@ Configuration management page with live save.
 - Toast notifications on save
 - All changes saved immediately via POST /api/config
 
-### Page 8: Transform (`/transform`)
+### Transform (integrated into Tasks page)
 
-AI-powered text-to-tasks transformation.
+AI-powered text-to-tasks transformation. Previously a standalone page (`/transform`), now integrated directly into the Tasks page as a collapsible section. The `/transform` URL still works as a redirect to `/tasks`.
 
 **Features:**
 - 3-step visual workflow: Write -> Transform -> Confirm
 - Large textarea for raw text input
 - "AI Transform" button calls Claude CLI to break text into structured tasks
+- Transform now generates `success_criteria` for each task
 - Preview panel with checkboxes for each generated task
 - "Add Selected" button to confirm and add tasks to queue
 - Status messages during processing
@@ -750,7 +768,7 @@ curl http://localhost:7331/api/task/task_001
 
 #### `POST /add-task`
 
-Add a new task. Accepts form-encoded data.
+Add a new task. Accepts form-encoded data. The `success_criteria` field is auto-generated when tasks are created via Transform.
 
 **Content-Type:** `application/x-www-form-urlencoded`
 
@@ -809,7 +827,7 @@ curl -X POST http://localhost:7331/start
 
 #### `POST /start-task/{task_id}`
 
-Start the agent on a specific task. Sets the task to `in_progress`, updates `current_task` in checkpoint, and starts the agent if not already running.
+Start the agent on a specific task. Sets the task to `in_progress`, updates `current_task` in checkpoint, and starts the agent with `max_sessions=1`. Unlike the global `/start`, this does not chain to other tasks after completion.
 
 **URL Pattern:** `/start-task/task_003`
 
@@ -821,6 +839,24 @@ Start the agent on a specific task. Sets the task to `in_progress`, updates `cur
 
 ```bash
 curl -X POST http://localhost:7331/start-task/task_003
+```
+
+#### `POST /delete-task/{task_id}`
+
+Delete a task by ID. Removes the task from `tasks.json`.
+
+**URL Pattern:** `/delete-task/task_003`
+
+**Response:** `200 OK`, `Content-Type: application/json`
+
+```json
+{"ok": true}
+```
+
+Returns `404` with `{"error": "Task not found"}` if the task does not exist.
+
+```bash
+curl -X POST http://localhost:7331/delete-task/task_003
 ```
 
 #### `POST /stop`
@@ -904,7 +940,7 @@ curl -X POST http://localhost:7331/api/config \
 
 #### `POST /transform`
 
-Transform raw text into structured tasks using Claude CLI.
+Transform raw text into structured tasks using Claude CLI. Now generates `success_criteria` for each task.
 
 **Content-Type:** `application/x-www-form-urlencoded`
 
@@ -916,8 +952,8 @@ Transform raw text into structured tasks using Claude CLI.
 ```json
 {
   "tasks": [
-    {"title": "Add login page", "description": "Create login page with email/password fields"},
-    {"title": "Write unit tests", "description": "Cover auth module with pytest tests"}
+    {"title": "Add login page", "description": "Create login page with email/password fields", "success_criteria": "Login form renders and submits successfully"},
+    {"title": "Write unit tests", "description": "Cover auth module with pytest tests", "success_criteria": "pytest passes with 100% of auth endpoints covered"}
   ]
 }
 ```
@@ -934,7 +970,7 @@ curl -X POST http://localhost:7331/transform \
 
 #### `POST /transform-confirm`
 
-Confirm and add transformed tasks to the task list.
+Confirm and add transformed tasks to the task list. Tasks may include `success_criteria` generated by the Transform AI.
 
 **Content-Type:** `application/json`
 
@@ -942,8 +978,8 @@ Confirm and add transformed tasks to the task list.
 ```json
 {
   "tasks": [
-    {"title": "Add login page", "description": "Create login page with fields"},
-    {"title": "Write unit tests", "description": "Cover auth module"}
+    {"title": "Add login page", "description": "Create login page with fields", "success_criteria": "Login form renders and submits"},
+    {"title": "Write unit tests", "description": "Cover auth module", "success_criteria": "pytest passes"}
   ]
 }
 ```
@@ -1709,4 +1745,4 @@ Emitted at the end of the session. Contains the final text result (truncated to 
 
 ---
 
-*Generated for PocketCoder-A1 v0.2.0 (Autonomous Gnome)*
+*Generated for PocketCoder-A1 v0.2.3 (Autonomous Gnome)*

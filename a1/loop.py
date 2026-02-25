@@ -54,6 +54,8 @@ class SessionLoop:
         self._last_verification = None  # Last verification result
         self._context_overflow = False  # Set when context >= threshold
         self._context_percent = 0.0  # Current context usage (0.0 - 1.0)
+        self._session_result = ""  # Last result text from agent
+        self._session_edits = []  # Files edited this session
         self._session_metrics = {
             "tokens_in": 0,
             "tokens_out": 0,
@@ -106,6 +108,8 @@ class SessionLoop:
             return f"[{tool_name}] {target}", ev_type
         elif tool_name in ("Edit", "Write"):
             target = tool_input.get("file_path", "")
+            if target and target not in self._session_edits:
+                self._session_edits.append(target)
             return f"[{tool_name}] {target}", ev_type
         elif tool_name == "Bash":
             cmd = tool_input.get("command", "")[:80]
@@ -182,9 +186,10 @@ class SessionLoop:
 
         # Result message
         if etype == "result":
-            result_text = str(event.get("result", ""))[:200]
+            result_text = str(event.get("result", ""))[:500]
+            self._session_result = result_text
             if result_text.strip():
-                return f"[Result] {result_text}", "text"
+                return f"[Result] {result_text[:200]}", "text"
             return None, None
 
         # Assistant message — contains text, tool_use, or thinking blocks
@@ -1084,12 +1089,36 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                 context_info = f", context: {int(self._context_percent * 100)}% [AUTO-CHECKPOINT]"
             print(f"-- Session #{cp['session']} ended (duration: {duration}s, exit: {exit_code}{context_info})")
 
-            # Save session metrics to checkpoint
-            self._session_metrics["session_duration"] = duration
-            cp_data = self.checkpoint.load()
-            cp_data["session_metrics"] = dict(self._session_metrics)
-            cp_data["context_percent"] = int(self._context_percent * 100)
-            self.checkpoint.save(cp_data)
+            # Save session metrics + summary to checkpoint
+            try:
+                self._session_metrics["session_duration"] = duration
+                cp_data = self.checkpoint.load()
+                cp_data["session_metrics"] = dict(self._session_metrics)
+                cp_data["context_percent"] = int(self._context_percent * 100)
+
+                # Session summary for next session context
+                if self._session_edits:
+                    cp_data["files_modified"] = list(set(
+                        cp_data.get("files_modified", []) + self._session_edits
+                    ))
+                session_log = {
+                    "session": cp_data.get("session", 0),
+                    "edits": self._session_edits[:20],
+                    "result": self._session_result[:300] if self._session_result else "",
+                    "tools": self._session_metrics.get("tools_used", 0),
+                    "duration": duration,
+                }
+                history = cp_data.get("session_history", [])
+                history.append(session_log)
+                cp_data["session_history"] = history
+
+                self.checkpoint.save(cp_data)
+            except Exception as e:
+                print(f"  [WARN] Failed to save session summary: {e}")
+
+            # Reset per-session trackers
+            self._session_edits = []
+            self._session_result = ""
 
             # POST-SESSION VERIFICATION — don't trust agent, verify
             verification = self._verify_session()

@@ -1367,7 +1367,7 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
 &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608; &#9617;&#9608;&#9612;
 &#9608;&#9619;   &#9619;&#9608;  &#9608;&#9612;
 &#9608;&#9612;   &#9612;&#9608; &#9608;&#9608;&#9608;</pre></div>
-            <div class="logo-sub">pocketcoder // v0.2.3</div>
+            <div class="logo-sub">pocketcoder // v0.2.4</div>
 
             <nav>
                 <div class="nav-section">
@@ -1665,6 +1665,12 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
+
+    def _safe_write(self, data):
+        try:
+            self.wfile.write(data)
+        except BrokenPipeError:
+            pass
 
     def do_GET(self):
         path = urlparse(self.path).path
