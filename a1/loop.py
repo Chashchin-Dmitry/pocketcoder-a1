@@ -33,6 +33,7 @@ class SessionLoop:
         max_sessions: int = 100,
         max_turns: int = 25,
         session_delay: int = 5,
+        single_task_id: str = None,
     ):
         self.project_dir = Path(project_dir)
         self.provider = provider
@@ -43,6 +44,7 @@ class SessionLoop:
         self.max_sessions = max_sessions
         self.max_turns = max_turns
         self.session_delay = session_delay
+        self.single_task_id = single_task_id
 
         self.checkpoint = CheckpointManager(project_dir)
         self.tasks = TaskManager(project_dir)
@@ -227,7 +229,7 @@ class SessionLoop:
     # Checks that WARN but don't block (nice to fix)
     WARNING_CHECKS = {"lint", "build", "git"}
     # Max retries before giving up
-    MAX_VERIFY_RETRIES = 3
+    MAX_VERIFY_RETRIES = 5
 
     def _save_context_checkpoint(self):
         """Save checkpoint when context threshold is reached.
@@ -327,8 +329,8 @@ class SessionLoop:
 
         # 4. All tasks done? (BLOCKING if checkpoint says COMPLETED)
         if checkpoint.get("status") == "COMPLETED":
-            done, total = self.tasks.get_progress()
-            if done < total:
+            done, total, _blocked = self.tasks.get_progress()
+            if done < total - _blocked:
                 blocking_issues.append(f"tasks: Only {done}/{total} done but checkpoint says COMPLETED")
 
         # 5. Retry counter
@@ -337,24 +339,24 @@ class SessionLoop:
         retry_count = prev_retry + 1 if blocking_issues else 0
 
         # 6. Anti-infinite-loop: max retries exceeded?
-        force_accept = False
+        should_block = False
         if blocking_issues and retry_count >= self.MAX_VERIFY_RETRIES:
-            force_accept = True
+            should_block = True
             warnings.append(
-                f"MAX RETRIES ({self.MAX_VERIFY_RETRIES}) reached — accepting with issues"
+                f"MAX RETRIES ({self.MAX_VERIFY_RETRIES}) reached — marking task BLOCKED"
             )
 
-        passed = len(blocking_issues) == 0 or force_accept
+        passed = len(blocking_issues) == 0
 
         # Build summary
         summary_lines = []
-        if passed and not force_accept:
+        if passed:
             summary_lines.append("[VERIFY] All checks PASSED")
             for name, report in val_results.items():
                 icon = "OK" if report.result.value == "ok" else "SKIP"
                 summary_lines.append(f"  [{icon}] {name}: {report.message}")
-        elif force_accept:
-            summary_lines.append(f"[VERIFY] FORCE ACCEPTED after {retry_count} retries")
+        elif should_block:
+            summary_lines.append(f"[VERIFY] BLOCKED after {retry_count} retries")
             for issue in blocking_issues:
                 summary_lines.append(f"  [!] {issue}")
         else:
@@ -380,7 +382,7 @@ class SessionLoop:
 
         return {
             "passed": passed,
-            "force_accepted": force_accept,
+            "should_block": should_block,
             "blocking_issues": blocking_issues,
             "warnings": warnings,
             "retry_count": retry_count,
@@ -437,7 +439,7 @@ class SessionLoop:
             lines.append("")
         lines.append("FIX THE BLOCKING ISSUES before marking any task as done.")
         if retry >= self.MAX_VERIFY_RETRIES - 1:
-            lines.append(f"WARNING: This is attempt {retry + 1} of {self.MAX_VERIFY_RETRIES}. If issues persist, the system will force-accept.")
+            lines.append(f"WARNING: This is attempt {retry + 1} of {self.MAX_VERIFY_RETRIES}. If issues persist, the task will be BLOCKED and the system will move to the next task.")
         lines.append("")
         return "\n".join(lines)
 
@@ -1127,17 +1129,51 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             # Проверяем статус (only trust COMPLETED if verification passed)
             if self.checkpoint.is_completed():
                 if verification["passed"]:
-                    label = "FORCE ACCEPTED" if verification.get("force_accepted") else "VERIFIED"
                     print()
                     print("=" * 60)
-                    print(f"[OK] ALL TASKS COMPLETED + {label}!")
+                    print("[OK] ALL TASKS COMPLETED + VERIFIED!")
                     print("=" * 60)
-                    done, total = self.tasks.get_progress()
-                    print(f"Tasks: {done}/{total}")
+                    done, total, blocked = self.tasks.get_progress()
+                    progress_str = f"Tasks: {done}/{total}"
+                    if blocked:
+                        progress_str += f", {blocked} blocked"
+                    print(progress_str)
                     print(f"Sessions: {session_count}")
-                    if verification.get("force_accepted"):
-                        print(f"  (accepted with issues after {verification['retry_count']} retries)")
                     break
+                elif verification.get("should_block"):
+                    # Max retries reached — block current task, try next
+                    retry = verification["retry_count"]
+                    current_task_id = self.checkpoint.load().get("current_task")
+                    block_reason = "; ".join(verification["blocking_issues"][:3])
+                    print()
+                    print(f"[!] Task {current_task_id} BLOCKED after {retry} retries: {block_reason}")
+
+                    if current_task_id:
+                        self.tasks.mark_blocked(current_task_id, block_reason)
+                        if self._log_callback:
+                            try:
+                                self._log_callback(f"[BLOCKED] {current_task_id}: {block_reason[:100]}", "verify")
+                            except Exception:
+                                pass
+
+                    if self.single_task_id:
+                        # Single task mode — stop
+                        print(f"    Single-task mode: stopping.")
+                        break
+                    else:
+                        # All tasks mode — move to next
+                        next_task = self.tasks.get_next_task()
+                        if next_task is None:
+                            print("    No more tasks to work on.")
+                            break
+                        print(f"    Moving to next task: {next_task.id}")
+                        cp_data = self.checkpoint.load()
+                        cp_data["status"] = "WORKING"
+                        cp_data["current_task"] = next_task.id
+                        cp_data["last_verification"] = None
+                        self.checkpoint.save(cp_data)
+                        self._last_verification = None
+                        continue
                 else:
                     # Agent says COMPLETED but verification failed — retry
                     retry = verification["retry_count"]
@@ -1174,7 +1210,10 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         print("=" * 60)
         print("::: AUTONOMOUS GNOME STOPPED")
         print("=" * 60)
-        done, total = self.tasks.get_progress()
-        print(f"Progress: {done}/{total} tasks completed")
+        done, total, blocked = self.tasks.get_progress()
+        progress_str = f"Progress: {done}/{total} tasks completed"
+        if blocked:
+            progress_str += f", {blocked} blocked"
+        print(progress_str)
         print(f"Sessions: {session_count}")
         print(f"Checkpoint saved in: {self.checkpoint.checkpoint_file}")

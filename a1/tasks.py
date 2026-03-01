@@ -29,6 +29,7 @@ class Task:
     raw_thought: Optional[str] = None  # Исходная мысль если была
     phase: Optional[str] = None  # Фаза из TODO.md
     success_criteria: Optional[str] = None  # Критерии успеха
+    blocked_reason: Optional[str] = None  # Причина блокировки
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -180,6 +181,10 @@ class TaskManager:
             task_id, status="done", completed_at=datetime.now().isoformat()
         )
 
+    def mark_blocked(self, task_id: str, reason: str) -> Optional[Task]:
+        """Заблокировать задачу с причиной"""
+        return self.update_task(task_id, status="blocked", blocked_reason=reason)
+
     def reorder_tasks(self, task_ids: List[str]) -> None:
         """Reorder tasks by assigning priorities based on position in task_ids list"""
         data = self._load_data()
@@ -189,28 +194,36 @@ class TaskManager:
                 t["priority"] = id_to_priority[t["id"]]
         self._save_data(data)
 
-    def get_progress(self) -> Tuple[int, int]:
-        """Получить прогресс (done, total)"""
+    def get_progress(self) -> Tuple[int, int, int]:
+        """Получить прогресс (done, total, blocked)"""
         tasks = self.get_tasks()
         done = len([t for t in tasks if t.status == "done"])
-        return done, len(tasks)
+        blocked = len([t for t in tasks if t.status == "blocked"])
+        return done, len(tasks), blocked
 
     def get_summary(self) -> str:
         """Получить текстовое резюме для промпта"""
-        done, total = self.get_progress()
+        done, total, blocked = self.get_progress()
         tasks = self.get_tasks()
         tasks.sort(key=lambda t: (t.status == "done", t.priority))
 
-        lines = [f"## Tasks ({done}/{total} completed)"]
+        header = f"## Tasks ({done}/{total} completed"
+        if blocked:
+            header += f", {blocked} blocked"
+        header += ")"
+        lines = [header]
 
         for t in tasks:
             status_mark = {"pending": "[ ]", "in_progress": "[~]", "done": "[x]", "blocked": "[!]"}.get(
                 t.status, "[?]"
             )
-            lines.append(f"{status_mark} [{t.id}] {t.title}")
+            line = f"{status_mark} [{t.id}] {t.title}"
+            if t.status == "blocked" and t.blocked_reason:
+                line += f" — BLOCKED: {t.blocked_reason}"
+            lines.append(line)
             if t.description:
                 lines.append(f"    {t.description[:100]}")
-            if t.success_criteria and t.status != "done":
+            if t.success_criteria and t.status not in ("done", "blocked"):
                 lines.append(f"    SUCCESS CRITERIA: {t.success_criteria}")
 
         # Добавляем raw thoughts если есть

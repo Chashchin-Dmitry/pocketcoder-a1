@@ -93,15 +93,33 @@ def cmd_start(args):
         print(f"[ERROR] A1 not initialized. Run: pca init {project_dir}")
         return 1
 
-    # Проверяем есть ли задачи
-    tasks = TaskManager(project_dir)
-    pending = tasks.get_tasks(status="pending")
-    in_progress = tasks.get_tasks(status="in_progress")
+    single_task_id = getattr(args, "task", None)
 
-    if not pending and not in_progress:
-        print("[ERROR] No tasks to work on!")
-        print("   Add tasks with: pca think 'idea' or pca task add 'task'")
-        return 1
+    # Validate single task if specified
+    if single_task_id:
+        tasks = TaskManager(project_dir)
+        all_tasks = tasks.get_tasks()
+        task_map = {t.id: t for t in all_tasks}
+        if single_task_id not in task_map:
+            print(f"[ERROR] Task '{single_task_id}' not found")
+            return 1
+        t = task_map[single_task_id]
+        if t.status == "done":
+            print(f"[ERROR] Task '{single_task_id}' is already done")
+            return 1
+        if t.status == "blocked":
+            print(f"[ERROR] Task '{single_task_id}' is blocked: {t.blocked_reason or 'unknown reason'}")
+            return 1
+    else:
+        # Проверяем есть ли задачи
+        tasks = TaskManager(project_dir)
+        pending = tasks.get_tasks(status="pending")
+        in_progress = tasks.get_tasks(status="in_progress")
+
+        if not pending and not in_progress:
+            print("[ERROR] No tasks to work on!")
+            print("   Add tasks with: pca think 'idea' or pca task add 'task'")
+            return 1
 
     # Load config and merge with CLI args
     config = Config(project_dir)
@@ -116,7 +134,7 @@ def cmd_start(args):
         "session_delay": getattr(args, "session_delay", None),
     })
 
-    loop = SessionLoop(project_dir=project_dir, **resolved)
+    loop = SessionLoop(project_dir=project_dir, single_task_id=single_task_id, **resolved)
     loop.start()
 
     return 0
@@ -320,6 +338,7 @@ def main():
     p_start.add_argument("--ollama-model", help="Ollama model name")
     p_start.add_argument("--max-turns", type=int, help="Max turns per session (default: 25)")
     p_start.add_argument("--session-delay", type=int, help="Delay between sessions in seconds")
+    p_start.add_argument("--task", help="Run single task by ID (e.g. task_001)")
     p_start.set_defaults(func=cmd_start)
 
     # status

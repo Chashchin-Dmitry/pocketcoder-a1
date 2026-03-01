@@ -97,7 +97,7 @@ dashboard.py ────┤               → tasks.py
     "id": "task_001",
     "title": "Add health endpoint",
     "description": "Create /api/health...",
-    "status": "pending|in_progress|done",
+    "status": "pending|in_progress|done|blocked",
     "priority": 1,
     "success_criteria": "pytest passes",
     "phase": "2.1"
@@ -144,6 +144,7 @@ pca task add "title"             # Add task
 pca think "raw thought"          # Add thought (for transform)
 pca tasks                        # Show all tasks with priorities
 pca start                        # Start autonomous work (Claude Max)
+pca start --task task_001        # Work on single task only
 pca start --provider claude-api  # With Claude API
 pca start --provider ollama      # With local model
 pca status                       # Current checkpoint status
@@ -253,7 +254,8 @@ Agent says "COMPLETED"
       │
       └── TIER 3 ANTI-LOOP:
           ├── Baseline: pre-existing issues don't count
-          ├── Max 3 retries → force_accept
+          ├── Max 5 retries → task BLOCKED + move to next
+          ├── Single-task mode (--task): BLOCKED → stop
           └── Prompt injection: errors → next session prompt
 ```
 

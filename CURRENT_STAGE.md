@@ -60,7 +60,8 @@
                               └── result → конец сессии
                                   └── loop._verify_session() → validator.run_all()
                                       ├── PASS → checkpoint.status = COMPLETED → stop
-                                      └── FAIL → retry (max 3) → fix prompt → повтор
+                                      ├── FAIL → retry (max 5) → fix prompt → повтор
+                                      └── BLOCKED → mark task blocked → next task
 ```
 
 ---
@@ -126,13 +127,21 @@ loop.start()
         effect: 3 уровня проверки:
           BLOCKING: syntax + tests + files_exist + success_criteria
           WARNING:  lint + build + git
-          ANTI-LOOP: baseline + max 3 retries + force_accept
+          ANTI-LOOP: baseline + max 5 retries + BLOCKED
+        chain:
+          retry >= MAX_VERIFY_RETRIES(5)
+            └── should_block = True
+                └── tasks.mark_blocked(task_id, reason)
+                    ├── pca start (все задачи):
+                    │   └── get_next_task() → task_002 → продолжаем
+                    └── pca start --task task_001:
+                        └── стоп → "task_001: BLOCKED"
 ```
 
 **Константы**:
 - `CONTEXT_WINDOW_SIZE = 200_000` — размер окна Claude
 - `CONTEXT_THRESHOLD = 0.70` — авто-checkpoint при 70%
-- `MAX_VERIFY_RETRIES = 3` — лимит ретраев верификации
+- `MAX_VERIFY_RETRIES = 5` — лимит ретраев верификации
 - `BLOCKING_CHECKS = {"syntax", "tests"}` — то, что блокирует
 - `WARNING_CHECKS = {"lint", "build", "git"}` — то, что только предупреждает
 
@@ -238,7 +247,8 @@ Task Detail View:
 | `get_next_task()` | Следующая pending задача (сортировка по priority ASC) |
 | `mark_done(task_id)` | Отметить выполненной |
 | `get_summary()` | Текст для промпта: задачи + статусы + criteria |
-| `get_progress()` | `(done_count, total_count)` |
+| `get_progress()` | `(done_count, total_count, blocked_count)` |
+| `mark_blocked(task_id, reason)` | Заблокировать задачу с причиной |
 | `reorder_tasks(ids)` | Переупорядочить + переназначить priorities |
 
 **Формат задачи**:
@@ -247,10 +257,11 @@ Task Detail View:
   "id": "task_001",
   "title": "Add health check endpoint",
   "description": "Create /api/health endpoint...",
-  "status": "pending|in_progress|done",
+  "status": "pending|in_progress|done|blocked",
   "priority": 1,
   "phase": "2.1",
   "success_criteria": "pytest passes, file exists",
+  "blocked_reason": null,
   "created_at": "2026-02-22T12:00:00",
   "completed_at": null
 }
@@ -335,6 +346,7 @@ Task Detail View:
 | `pca think "..."` | Добавляет сырую мысль | `pca think "нужен роутер"` |
 | `pca tasks` | Показывает все задачи | `pca tasks` |
 | `pca start` | Запускает автономную работу | `pca start --provider claude-api` |
+| `pca start --task ID` | Работа над одной задачей | `pca start --task task_001` |
 | `pca status` | Текущий статус | `pca status` |
 | `pca validate` | Запуск валидации | `pca validate` |
 | `pca ui` | Запуск веб-дашборда | `pca ui --no-browser` |

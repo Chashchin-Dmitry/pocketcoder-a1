@@ -152,14 +152,34 @@ body {
     user-select: none;
 }
 .logo-art {
-    color: var(--accent);
-    font-size: 11px;
-    line-height: 1.05;
+    color: #E8956A;
+    font-size: 14px;
+    line-height: 1.1;
     font-family: 'JetBrains Mono', monospace;
     margin: 0;
-    text-shadow: 2px 2px 0 rgba(0,0,0,0.4), -1px -1px 0 rgba(255,180,130,0.15);
-    filter: drop-shadow(0 2px 4px rgba(218,119,86,0.3));
-    letter-spacing: 0.5px;
+    text-shadow:
+        1px 1px 0 #DA7756,
+        2px 2px 0 #C4653F,
+        3px 3px 0 #A8522F,
+        4px 4px 0 #8C4020,
+        5px 5px 0 #703018,
+        0 0 10px rgba(232,149,106,0.5),
+        0 0 20px rgba(218,119,86,0.3),
+        0 0 40px rgba(218,119,86,0.15);
+    filter: drop-shadow(0 3px 6px rgba(218,119,86,0.4));
+    letter-spacing: 1px;
+}
+[data-theme="dark"] .logo-art {
+    color: #F0A87A;
+    text-shadow:
+        1px 1px 0 #DA7756,
+        2px 2px 0 #C4653F,
+        3px 3px 0 #A8522F,
+        4px 4px 0 #8C4020,
+        5px 5px 0 #703018,
+        0 0 15px rgba(240,168,122,0.6),
+        0 0 30px rgba(218,119,86,0.4),
+        0 0 50px rgba(218,119,86,0.2);
 }
 
 .logo-sub {
@@ -407,6 +427,7 @@ body {
 .task-status-stripe.pending { background: var(--border-color); }
 .task-status-stripe.in_progress { background: var(--warning); }
 .task-status-stripe.done { background: var(--success); }
+.task-status-stripe.blocked { background: var(--danger); }
 
 .task-check {
     width: 20px;
@@ -429,6 +450,12 @@ body {
 .task-check.progress {
     background: var(--warning);
     border-color: var(--warning);
+    color: white;
+}
+
+.task-check.blocked {
+    background: var(--danger);
+    border-color: var(--danger);
     color: white;
 }
 
@@ -1198,6 +1225,7 @@ input[type="password"]:focus {
 .td-badge.pending { background: var(--bg-tertiary); color: var(--text-secondary); }
 .td-badge.in_progress { background: var(--warning); color: #fff; }
 .td-badge.done { background: var(--success); color: #fff; }
+.td-badge.blocked { background: var(--danger); color: #fff; }
 
 .td-grid {
     display: grid;
@@ -1362,11 +1390,11 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
 <body>
     <div class="layout">
         <aside class="sidebar">
-            <div class="logo-ascii"><pre class="logo-art">&#9619;&#9608;&#9608;&#9608;&#9608;&#9608;&#9619;  &#9617;&#9612;
-&#9608;&#9619;   &#9619;&#9608; &#9617;&#9608;&#9612;
-&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608; &#9617;&#9608;&#9612;
-&#9608;&#9619;   &#9619;&#9608;  &#9608;&#9612;
-&#9608;&#9612;   &#9612;&#9608; &#9608;&#9608;&#9608;</pre></div>
+            <div class="logo-ascii"><pre class="logo-art"> &#9618;&#9608;&#9608;&#9608;&#9608;&#9608;&#9618;  &#9617;&#9612;
+ &#9608;&#9619;   &#9619;&#9608; &#9617;&#9608;&#9612;
+ &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608; &#9617;&#9608;&#9612;
+ &#9608;&#9619;   &#9619;&#9608;  &#9608;&#9612;
+ &#9608;&#9612;   &#9612;&#9608; &#9608;&#9608;&#9608;</pre></div>
             <div class="logo-sub">pocketcoder // v0.2.4</div>
 
             <nav>
@@ -1480,7 +1508,12 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
                     }
                     const tc = document.getElementById('task-count');
                     if (tc && data.progress) {
-                        tc.textContent = data.progress[0] + '/' + data.progress[1];
+                        let txt = data.progress[0] + '/' + data.progress[1];
+                        tc.textContent = txt;
+                        const sub = tc.parentElement && tc.parentElement.querySelector('.card-sub');
+                        if (sub) {
+                            sub.textContent = data.progress[2] ? 'completed, ' + data.progress[2] + ' blocked' : 'completed';
+                        }
                     }
                     const sc = document.getElementById('session-count');
                     if (sc && data.checkpoint) {
@@ -1908,7 +1941,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         cp = checkpoint.load()
         all_tasks = tasks_mgr.get_tasks()
-        done, total = tasks_mgr.get_progress()
+        done, total, blocked = tasks_mgr.get_progress()
         progress = int((done / total * 100)) if total > 0 else 0
 
         # Status
@@ -1932,12 +1965,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif t.status == 'in_progress':
                 check_class = 'progress'
                 check_icon = '<i class="bi bi-arrow-repeat"></i>'
+            elif t.status == 'blocked':
+                check_class = 'blocked'
+                check_icon = '<i class="bi bi-x-circle" style="color:var(--danger)"></i>'
             else:
                 check_class = ''
                 check_icon = ''
 
             pri = getattr(t, 'priority', 0)
-            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
+            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status not in ('done', 'blocked') else ''
 
             tasks_html += f'''
             <a href="/task/{t.id}" class="task task-clickable" style="text-decoration:none;color:inherit">
@@ -2003,7 +2039,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             <div class="card">
                 <div class="card-title"><i class="bi bi-check2-square"></i> Tasks</div>
                 <div class="card-value" id="task-count">{done}/{total}</div>
-                <div class="card-sub">completed</div>
+                <div class="card-sub">{'completed' + (f', {blocked} blocked' if blocked else '')}</div>
                 <div class="progress">
                     <div class="progress-fill" style="width: {progress}%"></div>
                 </div>
@@ -2115,13 +2151,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif t.status == 'in_progress':
                 check_class = 'progress'
                 check_icon = '<i class="bi bi-arrow-repeat"></i>'
+            elif t.status == 'blocked':
+                check_class = 'blocked'
+                check_icon = '<i class="bi bi-x-circle" style="color:var(--danger)"></i>'
             else:
                 check_class = ''
                 check_icon = ''
 
             desc = t.description[:80] if t.description else ''
             pri = getattr(t, 'priority', 0)
-            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status != 'done' else ''
+            pri_badge = f'<span class="priority-badge">#{pri}</span>' if pri and t.status not in ('done', 'blocked') else ''
             phase_text = getattr(t, 'phase', '') or ''
             phase_tag = f'<span class="task-phase">{esc(phase_text)}</span>' if phase_text else ''
             status_class = t.status.replace(' ', '_')
@@ -2322,6 +2361,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         desc = task.description or 'No description'
         criteria = task.success_criteria or 'N/A'
         phase = getattr(task, 'phase', '') or 'N/A'
+        blocked_reason = getattr(task, 'blocked_reason', '') or ''
         created = task.created_at[:16].replace('T', ' ') if task.created_at else 'N/A'
         completed = task.completed_at[:16].replace('T', ' ') if task.completed_at else '—'
         pri = getattr(task, 'priority', 0) or 0
@@ -2443,6 +2483,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 <div class="td-info-value">{esc(desc)}</div>
                 <div class="td-info-label">Success Criteria</div>
                 <div class="td-info-value">{esc(criteria)}</div>
+                {f'<div class="td-info-label" style="color:var(--danger)">Blocked Reason</div><div class="td-info-value" style="color:var(--danger);font-weight:600">{esc(blocked_reason)}</div>' if blocked_reason else ''}
                 <div class="td-info-label">Phase</div>
                 <div class="td-info-value">{esc(phase)}</div>
                 <div class="td-info-label">Created</div>
