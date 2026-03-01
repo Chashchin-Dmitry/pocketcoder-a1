@@ -53,7 +53,19 @@
       "raw_thought": null,
       "phase": null,
       "success_criteria": null
+    },
+    {
+      "id": "task_013",
+      "title": "Test task from PyPI",
+      "description": "/tmp/test-pca-project",
+      "status": "pending",
+      "priority": 13,
+      "created_at": "2026-02-23T18:16:38.999303",
+      "completed_at": null,
+      "raw_thought": null,
+      "phase": null,
+      "success_criteria": null
     }
   ],
-  "next_id": 13
+  "next_id": 14
 }
