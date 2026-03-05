@@ -15,7 +15,7 @@
 
 ## WHAT IS THIS
 
-**PocketCoder-A1** — autonomous coding agent (4882 lines Python, 13 modules):
+**PocketCoder-A1** — autonomous coding agent (7086 lines Python, 15 modules):
 - Works without human intervention (Claude CLI subprocess)
 - Real-time dashboard with 6 metric cards, live logs, token tracking
 - Saves state between sessions (checkpoint + task priorities)
@@ -25,18 +25,19 @@
 
 ---
 
-## MODULE MAP (13 modules, 4882 lines)
+## MODULE MAP (15 modules, 7086 lines)
 
 ```
-a1/                          # 3795 lines — Main code
+a1/                          # 5999 lines — Main code
 ├── __init__.py       (6)    # Version 0.1.0
-├── loop.py           (744)  # Brain: subprocess → stream-json → verify → metrics
-├── dashboard.py      (2038) # Web UI: 7 pages, 17 API, 6 cards, live logs
+├── loop.py          (1219)  # Brain: subprocess → stream-json → verify → metrics
+├── dashboard.py     (3491)  # Web UI: 8 pages, 24 API, 6 cards, live logs
 ├── validator.py      (361)  # Eyes: syntax, tests, lint, build, git, criteria
-├── cli.py            (289)  # CLI: pca init/task/start/status/ui/test/...
-├── tasks.py          (211)  # Tasks: CRUD, priority, reorder, criteria
-├── checkpoint.py     (146)  # State: session, status, metrics, decisions
-└── tester/           (1087) # Vision QA agent
+├── cli.py            (387)  # CLI: pca init/task/start/status/ui/test/config/...
+├── config.py         (126)  # Settings: CLI > env > config.json > defaults
+├── tasks.py          (236)  # Tasks: CRUD, priority, reorder, criteria, delete
+├── checkpoint.py     (173)  # State: session, status, metrics, decisions
+└── tester/          (1087)  # Vision QA agent
     ├── runner.py     (419)  # Main loop: scenario → steps → screenshot → analyze
     ├── scenarios.py  (203)  # 7 test scenarios
     ├── report.py     (193)  # HTML/JSON reports
@@ -51,8 +52,10 @@ cli.py ──────────┐
                   ├──→ loop.py ──→ checkpoint.py
 dashboard.py ────┤               → tasks.py
                   │               → validator.py
+                  │               → config.py
                   └──→ tasks.py
                   └──→ checkpoint.py
+                  └──→ config.py
 ```
 
 ---
@@ -63,6 +66,7 @@ dashboard.py ────┤               → tasks.py
 .a1/                           ← Created by `pca init`
 ├── checkpoint.json            ← Session state (status, metrics, decisions)
 ├── tasks.json                 ← Task list (id, title, priority, criteria)
+├── config.json                ← Settings (provider, api_key, ollama, thresholds)
 ├── queue.json                 ← Message queue for agent (created on send)
 ├── sessions/
 │   └── session_NNN.log        ← Raw agent output per session
@@ -141,6 +145,7 @@ Also `.mcp.json` in project root — Playwright MCP for browser automation:
 ```bash
 pca init <dir>                   # Create .a1/ directory
 pca task add "title"             # Add task
+pca task delete task_001         # Delete task
 pca think "raw thought"          # Add thought (for transform)
 pca tasks                        # Show all tasks with priorities
 pca start                        # Start autonomous work (Claude Max)
@@ -152,6 +157,8 @@ pca validate                     # Run all validation checks
 pca ui                           # Launch web dashboard (:7331)
 pca ui --no-browser              # Without opening browser
 pca ui -d /path/to/project       # For specific project
+pca config                       # Show all settings
+pca config set provider ollama   # Change setting
 pca log                          # Session history
 pca test                         # Run all 7 vision QA tests
 pca test -s 1                    # Run specific scenario
@@ -160,17 +167,18 @@ pca test --no-vision             # Without AI vision analysis
 
 ---
 
-## DASHBOARD (7 pages, 17 API endpoints)
+## DASHBOARD (8 pages, 24 API endpoints)
 
 | Page | URL | What |
 |------|-----|------|
 | Dashboard | `/` | 6 cards, Start/Stop, live log |
-| Tasks | `/tasks` | List + DnD + detail view |
-| Sessions | `/sessions` | Session history |
+| Tasks | `/tasks` | List + DnD + bulk add |
+| Task Detail | `/task/{id}` | Full view + logs + sessions + Start/Stop/Delete |
+| Sessions | `/sessions` | Session history with metrics |
 | Log | `/log` | Activity timeline |
-| Settings | `/settings` | Config (read-only) |
-| Commits | `/commits` | Git history |
-| Transform | `/transform` | Text → tasks via AI |
+| Settings | `/settings` | Provider, API key, Ollama, session params |
+| Commits | `/commits` | Git history with type icons |
+| Transform | `/transform` | Text → tasks via AI (3-step flow) |
 
 ### 6 Metric Cards
 | Card | Data | Source |
@@ -194,17 +202,25 @@ pca test --no-vision             # Without AI vision analysis
 | metric | indigo | Metrics update |
 | verify | green | Verification result |
 
-### Key API
+### Key API (24 endpoints)
 | Method | Endpoint | What |
 |--------|----------|------|
 | GET | `/api/status` | Full status JSON (checkpoint + tasks + metrics) |
 | GET | `/api/log?since=N` | Agent log entries from index N |
-| POST | `/start` | Start agent |
+| GET | `/api/config` | Current config (API key masked) |
+| GET | `/api/task/{id}` | Single task JSON |
+| POST | `/start` | Start agent (all tasks) |
+| POST | `/start-task/{id}` | Start agent for single task |
 | POST | `/stop` | Stop agent |
 | POST | `/add-task` | Add task (form) |
+| POST | `/add-tasks-bulk` | Add multiple tasks (textarea) |
+| POST | `/delete-task/{id}` | Delete task |
 | POST | `/queue-message` | Message to running agent |
 | POST | `/api/reorder` | Reorder tasks (JSON) |
+| POST | `/api/config` | Update config (JSON) |
 | POST | `/transform` | AI text→tasks |
+| POST | `/transform-confirm` | Confirm transformed tasks |
+| POST | `/toggle-theme` | Toggle dark/light |
 
 ---
 
@@ -318,7 +334,7 @@ Claude Code sets `CLAUDECODE=1`. Nested `claude` calls crash with "cannot launch
 
 ---
 
-## BUGS FIXED (13)
+## BUGS FIXED (16)
 
 | # | File | Bug → Fix |
 |---|------|-----------|
@@ -335,6 +351,9 @@ Claude Code sets `CLAUDECODE=1`. Nested `claude` calls crash with "cannot launch
 | 11 | loop.py | f-string nested quotes → extracted to variable |
 | 12 | validator.py | Case-sensitive criteria → re-match on original string |
 | 13 | dashboard.py | `$` in JS Template → escaped as `$$` |
+| 14 | dashboard.py | Single-thread HTTPServer → `ThreadingHTTPServer` |
+| 15 | dashboard.py | CDN fonts block render → async load `media="print" onload` |
+| 16 | dashboard.py | `ConnectionResetError` in send_page → try/except |
 
 ---
 
@@ -363,19 +382,21 @@ Claude Code sets `CLAUDECODE=1`. Nested `claude` calls crash with "cannot launch
 
 ## CURRENT STATUS
 
-**Version**: 0.1.0
-**Code**: 4882 lines, 13 Python modules
-**Dashboard**: 7 pages, 17 API endpoints, 12 features
+**Version**: 0.2.4
+**Code**: 7086 lines, 15 Python modules
+**Dashboard**: 8 pages, 24 API endpoints, 12 features
 
 **Done:**
-- [x] Core: checkpoint, tasks, validator, loop, CLI
-- [x] Dashboard: 7 pages, 17 API, 6 cards, live logs, DnD, transform
+- [x] Core: checkpoint, tasks, validator, loop, CLI, config
+- [x] Dashboard: 8 pages, 24 API, 6 cards, live logs, DnD, transform, settings
 - [x] Stream-JSON: NDJSON parsing, 8 icon types, real-time
 - [x] Verification: 3-tier gate, anti-loop, baseline
 - [x] Token metrics: rate_limit_event → cards
 - [x] Vision QA: 7 scenarios, Playwright
 - [x] E2E: 6 tests passed
-- [x] 13 bugs fixed
+- [x] 16 bugs fixed
+- [x] 3 providers: claude-max, claude-api, ollama
+- [x] Config system: CLI > env > config.json > defaults
 
 **In Progress:**
 - [ ] Context monitoring (auto-checkpoint at 70%)

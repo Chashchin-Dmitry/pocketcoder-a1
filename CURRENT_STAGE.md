@@ -1,9 +1,9 @@
 # CURRENT STAGE — PocketCoder-A1
 
-**Last updated**: 2026-02-22
-**Version**: 0.1.0
-**Status**: Phase 1 DONE, Dashboard UX DONE, Stream-JSON DONE, Verification DONE, Token Metrics DONE
-**Code**: 4882 строк Python (13 модулей)
+**Last updated**: 2026-03-05
+**Version**: 0.2.4
+**Status**: Phase 1 DONE, Dashboard UX DONE, Stream-JSON DONE, Verification DONE, Token Metrics DONE, Providers DONE, Config DONE
+**Code**: 7086 строк Python (15 модулей)
 
 ---
 
@@ -68,7 +68,7 @@
 
 ## МОДУЛИ — КАРТА
 
-### a1/loop.py (744 строк) — Главный цикл
+### a1/loop.py (1219 строк) — Главный цикл
 
 **Класс**: `SessionLoop(project_dir, provider, max_sessions, session_delay)`
 
@@ -147,22 +147,23 @@ loop.start()
 
 ---
 
-### a1/dashboard.py (2038 строк) — Web UI
+### a1/dashboard.py (3491 строк) — Web UI
 
 **Функция**: `run_dashboard(project_dir, port, no_browser)`
 
-**Что делает**: HTTP-сервер на stdlib (no frameworks). 7 страниц, 17 API endpoints, live logs, AJAX.
+**Что делает**: ThreadingHTTPServer на stdlib (no frameworks). 8 страниц, 24 API endpoints, live logs, AJAX.
 
-**Страницы**:
+**Страницы (8)**:
 | URL | Название | Что показывает |
 |-----|---------|---------------|
 | `/` | Dashboard | 6 карточек метрик, кнопки Start/Stop, лог агента |
-| `/tasks` | Tasks | Список задач с приоритетами, drag-drop, раскрывающиеся детали |
-| `/sessions` | Sessions | История сессий, файлы, решения |
+| `/tasks` | Tasks | Список задач с приоритетами, drag-drop, bulk add |
+| `/task/{id}` | Task Detail | Полный вид + логи + сессии + Start/Stop/Delete |
+| `/sessions` | Sessions | История сессий с метриками |
 | `/log` | Activity Log | Хронология действий дашборда |
-| `/settings` | Settings | Конфигурация (пока read-only) |
-| `/commits` | Git Commits | История коммитов (если есть .git) |
-| `/transform` | Transform | Текст → задачи через AI |
+| `/settings` | Settings | Провайдер, API key, Ollama, параметры сессии |
+| `/commits` | Git Commits | История коммитов с иконками типов |
+| `/transform` | Transform | Текст → задачи через AI (3-step flow) |
 
 **6 карточек метрик (главная страница)**:
 | Карточка | Иконка | Данные | Источник |
@@ -216,19 +217,26 @@ Task Detail View:
         └── Files modified (если есть)
 ```
 
-**API endpoints (17 штук)**:
+**API endpoints (24 штуки)**:
 | Method | Endpoint | Что делает |
 |--------|----------|-----------|
 | GET | `/api/status` | JSON: checkpoint + tasks + progress + running + metrics |
 | GET | `/api/log?since=N` | Записи лога агента начиная с индекса N |
+| GET | `/api/config` | Текущий конфиг (API key замаскирован) |
+| GET | `/api/task/{id}` | Одна задача JSON |
 | POST | `/add-task` | Добавить задачу (form: task, description) |
+| POST | `/add-tasks-bulk` | Добавить несколько задач (textarea) |
 | POST | `/add-thought` | Добавить мысль (form: thought) |
-| POST | `/start` | Запустить агента (в отдельном потоке) |
+| POST | `/start` | Запустить агента (все задачи) |
+| POST | `/start-task/{id}` | Запустить агента для одной задачи |
 | POST | `/stop` | Остановить агента (kill subprocess) |
+| POST | `/delete-task/{id}` | Удалить задачу |
 | POST | `/queue-message` | Отправить сообщение агенту (form: message) |
 | POST | `/api/reorder` | Переупорядочить задачи (JSON: {order: [ids]}) |
+| POST | `/api/config` | Обновить конфиг (JSON) |
 | POST | `/transform` | AI разбивка текста на задачи (form: text) |
 | POST | `/transform-confirm` | Подтвердить задачи из transform (JSON: {tasks}) |
+| POST | `/toggle-theme` | Переключить тёмную/светлую тему |
 
 ---
 
