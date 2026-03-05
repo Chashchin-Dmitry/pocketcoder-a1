@@ -11,7 +11,7 @@ import threading
 import time as _time
 import webbrowser
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from string import Template
 from urllib.parse import parse_qs, urlparse
@@ -162,11 +162,7 @@ body {
         2px 2px 0 #C4653F,
         3px 3px 0 #A8522F,
         4px 4px 0 #8C4020,
-        5px 5px 0 #703018,
-        0 0 10px rgba(232,149,106,0.5),
-        0 0 20px rgba(218,119,86,0.3),
-        0 0 40px rgba(218,119,86,0.15);
-    filter: drop-shadow(0 3px 6px rgba(218,119,86,0.4));
+        5px 5px 0 #703018;
     letter-spacing: 1px;
 }
 [data-theme="dark"] .logo-art {
@@ -176,10 +172,7 @@ body {
         2px 2px 0 #C4653F,
         3px 3px 0 #A8522F,
         4px 4px 0 #8C4020,
-        5px 5px 0 #703018,
-        0 0 15px rgba(240,168,122,0.6),
-        0 0 30px rgba(218,119,86,0.4),
-        0 0 50px rgba(218,119,86,0.2);
+        5px 5px 0 #703018;
 }
 
 .logo-sub {
@@ -1383,8 +1376,8 @@ HTML_TEMPLATE = Template('''<!DOCTYPE html>
     <title>PocketCoder-A1 Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" media="print" onload="this.media='all'">
     <style>''' + CSS + '''</style>
 </head>
 <body>
@@ -1914,7 +1907,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
-        self.wfile.write(html.encode('utf-8'))
+        try:
+            self.wfile.write(html.encode('utf-8'))
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def build_content(self, page, task_id=None):
         if page == 'dashboard':
@@ -3465,7 +3461,7 @@ def run_dashboard(project_dir: Path, port: int = None, open_browser: bool = True
         except RuntimeError:
             port = find_free_port(7331)
 
-    server = HTTPServer(('0.0.0.0', port), DashboardHandler)
+    server = ThreadingHTTPServer(('0.0.0.0', port), DashboardHandler)
 
     url = f'http://localhost:{port}'
     print()
