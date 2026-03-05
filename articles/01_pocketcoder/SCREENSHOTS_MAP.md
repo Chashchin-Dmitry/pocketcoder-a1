@@ -57,9 +57,47 @@ REWRITING the first article (`articles/01_pocketcoder/`) — NOT creating a 4th 
 | 21 | 20.58.21 | 21_livelog_memory_write.png | Live-log close-up. task_016: EDIT epotos-templates/CLAUDE.md ×2, OUT "Documentation done. Now create the PocketCoder memory files." WRITE MEMORY.md, WRITE epotos-provider-switching.md. OUT "Now update checkpoint and mark complete." EDIT checkpoint.json ×2. CHECK [Verification] PASSED | Live-log — writing docs + memory files + final checkpoint |
 | 22 | 21.22.35 | 22_dashboard_completed.png | Dashboard FINAL. **5/5 completed. Session #12 COMPLETED.** Duration 2m 59s. Files 23 modified. GREEN "COMPLETED" badge top-right. GREEN "START AGENT" button (agent stopped). All 5 tasks green checkmarks. Live-log shows last entries from documentation phase. **This is the end state — full cycle complete** | Dashboard — COMPLETED, all done |
 
-## Questions for user
-- Screenshot 08 (20.39.01) looks identical to 07 (20.33.48) — Task Detail "Clone epotos-templates", all zeros. Is this a duplicate or is there a difference I'm missing?
-- Screenshot 15 (20.43.51) looks nearly identical to 14 (20.43.42) — same Tasks page, 9 seconds apart. Keep both or drop one?
+### Light theme screenshots (23-26)
+
+| # | Original time | New name | What's on screen | Article section |
+|---|--------------|----------|-----------------|-----------------|
+| 23 | 21.55.19 | 23_tasks_light.png | Tasks page LIGHT theme. 7 tasks total: task_019 "Clone reclamation project repository" PENDING #6, task_020 "Add DeepSeek provider integration" PENDING #7, task_014-018 all DONE. Add Task, Think, Bulk Import, AI Transform forms. Shows the UI works beautifully in both themes | Light theme — Tasks |
+| 24 | 21.55.27 | 24_dashboard_light.png | Dashboard LIGHT theme. 5/7 completed, Session #12 COMPLETED. Tokens 0/0, Cost $0.000, Duration 2m 59s, Files 23. GREEN COMPLETED badge. Task list: task_019+020 pending (orange badges), task_014-016 done (green). Quick Add form. GREEN START AGENT button | Light theme — Dashboard |
+| 25 | 21.55.33 | 25_dashboard_log_light.png | Dashboard scrolled down LIGHT theme. Live-log with dark terminal: EDIT CLAUDE.md, WRITE MEMORY.md + epotos-provider-switching.md, EDIT checkpoint.json, CHECK [Verification] PASSED. RECENT ACTIVITY: Transform confirmed 2 tasks added (21:53:10), Agent stopped (20:57:30), Message queued "I want to also make documentation..." (20:52:07), Agent started task_014 (20:41:23), Config updated provider (20:41:07) | Light theme — Live-log + Activity |
+| 26 | 21.55.53 | 26_task_detail_done_light.png | Task Detail LIGHT theme: "Clone epotos-templates repository" DONE, Priority #1. Description + Success Criteria. 4 metric cards: 17 Tool Calls, 7 Sessions, 0 Tokens In, 0 Tokens Out. Execution Log 25 entries: BASH (ls, find, gh search repos), READ, THINK, OUT "Repository cloned successfully", EDIT tasks.json + checkpoint.json, CHECK [Verification] PASSED. Session History: Session #2 IDLE, Sessions #3-#8 WORKING | Light theme — Task Detail completed |
+
+## Questions for user (ANSWER THESE — edit directly below each question)
+
+### Q1: Screenshot 08 — duplicate?
+Screenshot 08 (20.39.01) looks identical to 07 (20.33.48) — Task Detail "Clone epotos-templates", all zeros, empty execution log. Is this a duplicate or is there a difference I'm missing? Should I drop it from the article?
+> **Answer:**
+
+### Q2: Screenshot 15 — duplicate?
+Screenshot 15 (20.43.51) looks nearly identical to 14 (20.43.42) — same Tasks page with 2 done + 3 pending, 9 seconds apart. Keep both or drop one?
+> **Answer:**
+
+### Q3: Light theme screenshots 23-26 — where in the article?
+The 4 light theme screenshots (23-26) show the same state as dark theme (completed, tasks, etc.) but in light mode. Options:
+- a) Separate section "Light theme" at the end
+- b) Side-by-side pairs (dark+light) throughout the article
+- c) Just a few as "bonus" / "theme toggle" demo
+> **Answer:**
+
+### Q4: Article scope — just epotos-templates case study, or full PocketCoder overview?
+The 22 screenshots tell the story of one specific case (epotos-templates provider switching). Should the article:
+- a) Focus ONLY on this case study (like a "watch me work" walkthrough)
+- b) Mix case study with PocketCoder architecture explanation (like the original article_ru.md)
+- c) Something else?
+> **Answer:**
+
+### Q5: Diagrams — what to include?
+Which mermaid diagrams do you want?
+- a) Cause-effect chain (text → tasks → agent → done) — matches the screenshot flow
+- b) Architecture diagram (loop.py → validator → checkpoint → dashboard)
+- c) CLI flags / subprocess (how claude is called)
+- d) All of the above
+- e) Something else?
+> **Answer:**
 
 ## Reading progress
 - [x] Screenshots 01-06 read and described
