@@ -1,0 +1,65 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
+flowchart LR
+    %% === AGENT SIDE ===
+    subgraph Agent["Агент (loop.py)"]
+        direction TB
+        Claude["Claude CLI\nsubprocess"]
+        Claude --> StreamJSON["Stream-JSON\nNDJSON строки"]
+        StreamJSON --> Parse["_parse_stream_event()"]
+
+        Parse --> ToolUse["tool_use:\nRead/Edit/Write/Bash"]
+        Parse --> TextBlock["text:\nответ агента"]
+        Parse --> RateLimit["rate_limit_event:\ntokens in/out/cache"]
+        Parse --> ResultBlock["result:\nфинальный ответ"]
+    end
+
+    %% === BRIDGE ===
+    subgraph Bridge["Мост: Agent → Dashboard"]
+        direction TB
+        ToolUse --> LogCB["_log_callback(\n  text, type\n)"]
+        TextBlock --> LogCB
+        RateLimit --> MetricsUpdate["_session_metrics\ntokens_in += N\ntokens_out += N\ntools_used += 1"]
+        ResultBlock --> LogCB
+
+        LogCB --> Buffer["AGENT_LOG_BUFFER\n(глобальный list)\nappend({text, type, time})"]
+        MetricsUpdate --> SessionMetrics["get_session_metrics()\n→ dict: tokens, cost,\nduration, context%"]
+    end
+
+    %% === SERVER ===
+    subgraph Server["HTTP-сервер (dashboard.py)"]
+        direction TB
+        Buffer --> APILog["/api/log?since=N\nВернуть записи с индекса N\nJSON: entries[]"]
+        SessionMetrics --> APIStatus["/api/status\ncheckpoint + tasks +\nmetrics + running"]
+
+        QueueForm["POST /queue-message\n→ queue.json"] --> QueueFile[".a1/queue.json\n{messages: [{text, read}]}"]
+        QueueFile --> NextPrompt["Следующая сессия:\nbuild_prompt()\nчитает queue.json"]
+    end
+
+    %% === BROWSER ===
+    subgraph Browser["Браузер (JavaScript)"]
+        direction TB
+        APILog --> JSLog["updateLog()\nкаждые 2 сек\nfetch → DOM"]
+        APIStatus --> JSStatus["updateStatus()\nкаждые 3 сек\nfetch → карточки"]
+
+        JSLog --> LogPanel["Лог-панель\nиконки + цвета + текст\n8 типов событий"]
+
+        JSStatus --> Cards["6 карточек метрик"]
+        Cards --> C1["Tasks\n2/5 done + прогресс"]
+        Cards --> C2["Session\n#3 + WORKING бейдж"]
+        Cards --> C3["Tokens\n12.4K in / 3.2K out"]
+        Cards --> C4["Cost\n$0.08 за сессию"]
+        Cards --> C5["Duration\n48s (live timer)"]
+        Cards --> C6["Files\n3 modified"]
+
+        Timer["tickTimer()\nкаждую 1 сек\n(только когда running)"] --> C5
+    end
+
+    %% === STYLES ===
+    style Agent fill:#1e293b,color:#e2e8f0,stroke:#6366f1
+    style Bridge fill:#1e293b,color:#e2e8f0,stroke:#f59e0b
+    style Server fill:#1e293b,color:#e2e8f0,stroke:#10b981
+    style Browser fill:#1e293b,color:#e2e8f0,stroke:#3b82f6
+    style Buffer fill:#f59e0b,color:#000,stroke:#d97706
+    style SessionMetrics fill:#f59e0b,color:#000,stroke:#d97706
+    style Cards fill:#6366f1,color:#fff,stroke:#4f46e5
+    style LogPanel fill:#10b981,color:#fff,stroke:#059669

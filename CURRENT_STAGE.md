@@ -863,6 +863,7 @@ git push origin main
 - [x] E2E tests (6 passed)
 
 ### In Progress
+- [ ] Article 01 — Habr publication (see section below)
 - [ ] Context monitoring (auto-checkpoint at 70%)
 - [ ] Git integration (auto-branch, atomic commits)
 
@@ -871,4 +872,151 @@ git push origin main
 - [ ] Ollama provider
 - [ ] Smart Model Router
 - [ ] Unit tests (coverage > 80%)
-- [ ] PyPI release
+- [ ] PyPI + uv release
+- [ ] epotos-templates open source release
+
+---
+
+## ARTICLE 01 — HABR PUBLICATION
+
+### Контекст и мотивация (сырой ввод автора)
+
+**Проблема:**
+- 10+ проектов, все code-based
+- ИИ не заменяет людей — они просто БОЛЬШЕ работают (подтверждено личным опытом)
+- Подписка Claude Max за €90/мес — хочется чтобы она работала пока спишь/гуляешь
+- Предыдущий PocketCoder: люди писали баги, автор даже не залил фиксы (нет времени)
+- Казалось бы залить изменения — просто, но нет, это тоже время
+
+**Решение — PocketCoder-A1:**
+- "A1" = "а один" (русская игра слов). Маскот/кодовое имя "Alto Moscow" — мелкая шутка
+- Написал задачи перед сном → агент выполняет → утром готово
+- НЕ как OpenClaw (попробовал — вообще не сработало, криво всё)
+- Два разных продукта: OpenClaw = просто агент, A1 = менеджер задач + автономный исполнитель
+- Сделан прежде всего для Claude Code, но также LLaMA framework + Claude API + DeepSeek-совместимые
+- Сделан для себя, потом open source
+
+**Тестирование на epotos-templates:**
+- Реальный проект для компании "Epota" — обработка документов + генерация шаблонов
+- Заливаешь сырой документ → ИИ разбивает на методы за 5-50 мин → шаблонная библиотека
+- Форматы: XML, DOCX, PPTX, LibreOffice
+- Хотел добавить облачного провайдера (не только Ollama) → OpenAI-compatible
+- Скоро выложит epotos-templates в open source
+- Скриншоты 01-22: полный flow от пустого дашборда до 5/5 completed
+
+**Дисклеймеры (в статье):**
+- LLaMA framework и Claude API = ЭКСПЕРИМЕНТАЛЬНЫЕ
+- Welcome GitHub PRs — автор один, физически не успевает
+- Ошибка с прошлым PocketCoder: не принимал контрибьюции (не просил)
+- В A1: позитивно реагирует на PR, добавит
+
+**Вайб-кодинг бум:**
+- Прикольно было бы больше тулзов для оптимизации работы
+- Не замена человеку, а расширение возможностей
+
+### Структура статьи
+
+```
+Стиль: СТРОГО как на Хабре (habr.com/ru/articles/991022/)
+- Конверсационный тон, "мы", честность о багах
+- Технический depth с код-блоками
+- Сравнительные таблицы
+- Скриншоты с подписями
+- Подробные разделы с якорями
+```
+
+```
+1. Вступление / Проблема
+   ├── Личная история: 10+ проектов, ИИ = больше работы
+   ├── €90/мес Claude — пока сплю, пусть работает
+   ├── OpenClaw попробовал — не сработало
+   └── Идея: менеджер задач + автономный агент
+
+2. Что такое PocketCoder-A1
+   ├── CLI + Web Dashboard
+   ├── 7086 строк, 15 модулей
+   ├── 3 провайдера: Claude Max, Claude API, Ollama
+   ├── Отличие от PocketCoder v1 (CLI → autonomous agent)
+   └── Отличие от OpenClaw (task manager vs generic agent)
+
+3. Архитектура
+   ├── Диаграмма: CLI/Dashboard → Loop → Validator → Checkpoint
+   ├── Stream-JSON: живые логи
+   ├── Верификация: "не верим на слово" (3-tier gate)
+   ├── Anti-infinite-loop: baseline + max retries + BLOCKED
+   └── Token metrics: rate_limit_event → карточки
+
+4. Кейс: epotos-templates (скриншоты 01-22)
+   ├── 01-05: пустая страница → AI Transform → 5 задач за 30 сек
+   ├── 06-09: Start Agent + Settings
+   ├── 10-13: живой мониторинг (лог, tool calls, codebase analysis)
+   ├── 14-16: прогресс (2/5 → provider architecture)
+   ├── 17-18: Queue Message — пользователь пишет агенту
+   ├── 19-22: 5/5 done → документация → COMPLETED
+   └── 23-26: light theme (paired with dark screenshots)
+
+5. Dashboard (8 страниц)
+   ├── Скриншоты ключевых страниц
+   ├── 6 метрик-карточек
+   ├── 8 типов иконок лога
+   └── Transform flow
+
+6. Баги и честность
+   ├── 16 багов найдено и починено
+   ├── Таблица багов (как в v1 статье)
+   └── Дисклеймер: experimental, welcome PRs
+
+7. Заключение
+   ├── Вайб-кодинг бум → больше тулзов
+   ├── PyPI + uv (скоро)
+   ├── epotos-templates open source (скоро)
+   └── Ссылки: GitHub, Telegram, сайт
+```
+
+### Причинно-следственная цепочка статьи
+
+```
+Проблема: 10+ проектов + €90/мес подписка простаивает ночью
+  └── Попытка: OpenClaw → не сработало
+      └── Решение: написать свой автономный агент
+          └── PocketCoder-A1: CLI + Dashboard + 3 провайдера
+              └── Тестирование на реальном проекте (epotos-templates)
+                  └── Результат: 5/5 задач за 13 минут автономно
+                      └── Бонус: Queue Message (пишешь агенту пока работает)
+                          └── Бонус: агент сам написал документацию по запросу
+                              └── Вывод: работает, experimental, welcome PRs
+```
+
+### Скриншоты: что куда
+
+| # | Screenshot | Article section |
+|---|-----------|-----------------|
+| 01 | Tasks empty | Case study — начало |
+| 02-04 | Transform flow | Case study — создание задач |
+| 05 | 5 tasks created | Case study — задачи готовы |
+| 06 | Dashboard idle | Case study — перед стартом |
+| 07 | Task detail empty | Case study — детали задачи |
+| ~~08~~ | ~~DROPPED~~ | ~~duplicate of 07~~ |
+| 09 | Settings | Architecture / Settings |
+| 10 | Dashboard running + log | Case study — агент работает |
+| 11 | Task detail live | Case study — живые метрики |
+| 12 | Dashboard 1/5 done | Case study — первый результат |
+| 13 | Log — codebase analysis | Case study — анализ кода |
+| 14-15 | Tasks 2/5 done | Case study — прогресс |
+| 16 | Log — provider architecture | Case study — архитектура |
+| 17-18 | Queue message flow | Case study — сообщение агенту |
+| 19 | Dashboard 5/5 done | Case study — всё готово |
+| 20 | Log — verification + docs | Case study — верификация |
+| 21 | Log — memory write | Case study — документация |
+| 22 | Dashboard COMPLETED | Case study — финал |
+| 23 | Tasks light theme | Paired with 05 or 14 |
+| 24 | Dashboard light | Paired with 06 or 22 |
+| 25 | Dashboard log light | Paired with 10 or 13 |
+| 26 | Task detail done light | Paired with 07 or 11 |
+
+### Habr article v1 — ключевые моменты для reference
+- URL: https://habr.com/ru/articles/991022/
+- 21K читателей, 37 upvotes, 146 bookmarks, 69 комментов
+- Структура: проблема → конкуренты (Aider/Cline/OpenCode/KiloCode) → сравнительная таблица → что мы сделали → live demo → выводы
+- Стиль: "мы", конверсационный, честность о багах, код-блоки, таблицы
+- В A1 статье: конкурентов подробно НЕ разбираем (не нашёл прямых аналогов), фокус на use case

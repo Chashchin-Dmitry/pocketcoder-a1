@@ -68,36 +68,20 @@ REWRITING the first article (`articles/01_pocketcoder/`) — NOT creating a 4th 
 
 ## Questions for user (ANSWER THESE — edit directly below each question)
 
-### Q1: Screenshot 08 — duplicate?
-Screenshot 08 (20.39.01) looks identical to 07 (20.33.48) — Task Detail "Clone epotos-templates", all zeros, empty execution log. Is this a duplicate or is there a difference I'm missing? Should I drop it from the article?
-> **Answer:**
+### Q1: Screenshot 08 — duplicate? ANSWERED
+> **Answer:** YES, duplicate of 07. DROP from article.
 
-### Q2: Screenshot 15 — duplicate?
-Screenshot 15 (20.43.51) looks nearly identical to 14 (20.43.42) — same Tasks page with 2 done + 3 pending, 9 seconds apart. Keep both or drop one?
-> **Answer:**
+### Q2: Screenshot 15 — duplicate? ANSWERED
+> **Answer:** Keep BOTH 14 and 15. "побольше фоток" — more photos is better.
 
-### Q3: Light theme screenshots 23-26 — where in the article?
-The 4 light theme screenshots (23-26) show the same state as dark theme (completed, tasks, etc.) but in light mode. Options:
-- a) Separate section "Light theme" at the end
-- b) Side-by-side pairs (dark+light) throughout the article
-- c) Just a few as "bonus" / "theme toggle" demo
-> **Answer:**
+### Q3: Light theme screenshots 23-26 — where in the article? ANSWERED
+> **Answer:** MIXED with dark theme — side-by-side pairs (b). "вместе с подобными слайдами темными"
 
-### Q4: Article scope — just epotos-templates case study, or full PocketCoder overview?
-The 22 screenshots tell the story of one specific case (epotos-templates provider switching). Should the article:
-- a) Focus ONLY on this case study (like a "watch me work" walkthrough)
-- b) Mix case study with PocketCoder architecture explanation (like the original article_ru.md)
-- c) Something else?
-> **Answer:**
+### Q4: Article scope? ANSWERED
+> **Answer:** Problem → Solution → Conclusion. Mix of product overview + case study. See CURRENT_STAGE.md "ARTICLE 01" section for full raw user input with all details.
 
-### Q5: Diagrams — what to include?
-Which mermaid diagrams do you want?
-- a) Cause-effect chain (text → tasks → agent → done) — matches the screenshot flow
-- b) Architecture diagram (loop.py → validator → checkpoint → dashboard)
-- c) CLI flags / subprocess (how claude is called)
-- d) All of the above
-- e) Something else?
-> **Answer:**
+### Q5: Diagrams — what to include? PENDING
+> **Answer:** Not yet answered. Ask user.
 
 ## Reading progress
 - [x] Screenshots 01-06 read and described

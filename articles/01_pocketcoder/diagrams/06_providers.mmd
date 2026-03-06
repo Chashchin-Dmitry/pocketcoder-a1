@@ -1,0 +1,37 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '15px' } } }%%
+flowchart TD
+    Loop["SessionLoop.run_session(prompt)"] --> Check{"self.provider = ?"}
+
+    %% === CLAUDE MAX ===
+    Check -->|"claude-max"| CM["Claude Max\n(подписка €90/мес)"]
+    CM --> CMHow["КАК: subprocess.Popen()\nВызов claude CLI как дочерний процесс"]
+    CMHow --> CMFlags["ФЛАГИ:\n-p prompt (неинтерактивный)\n--dangerously-skip-permissions\n--max-turns 25\n--verbose --output-format stream-json\n--no-session-persistence"]
+    CMFlags --> CMParse["ПАРСИНГ: NDJSON stream\nassistant → tool_use/text/thinking\nrate_limit_event → метрики\nresult → конец"]
+    CMParse --> CMTools["ИНСТРУМЕНТЫ: все нативные\nRead, Edit, Write, Bash, Glob,\nGrep, Agent, Skill, ..."]
+    CMTools --> CMKey["НУЖНО: env.pop('CLAUDECODE')\nбез этого — crash\n'cannot launch inside another session'"]
+
+    %% === CLAUDE API ===
+    Check -->|"claude-api\n[EXPERIMENTAL]"| CA["Claude API\n(платный, за токены)"]
+    CA --> CAHow["КАК: anthropic.Anthropic()\nclient.messages.stream()"]
+    CAHow --> CALoop["AGENTIC LOOP:\nпромпт → ответ → tool_use?\n→ _execute_tool() → результат\n→ следующий turn"]
+    CALoop --> CATools["6 ИНСТРУМЕНТОВ:\nRead, Write, Edit,\nBash, Glob, Grep\n(реализованы в _execute_tool())"]
+    CATools --> CAKey["НУЖНО: API ключ\nsk-ant-api03-...\n(config / env / --api-key)"]
+
+    %% === OLLAMA ===
+    Check -->|"ollama\n[EXPERIMENTAL]"| OL["Ollama\n(бесплатный, локальный)"]
+    OL --> OLHow["КАК: ollama.Client()\nclient.chat(stream=True)"]
+    OLHow --> OLStream["ПРОСТОЙ СТРИМИНГ:\nтолько текст, без tool_use\nмодель генерирует инструкции\nно НЕ выполняет их"]
+    OLStream --> OLModel["МОДЕЛЬ: qwen3:30b-a3b\n(по умолчанию)\nnum_ctx: 32768"]
+
+    %% === COMMON ===
+    CMParse --> Common["ОБЩЕЕ для всех провайдеров:\n• _session_metrics (tokens, tools, duration)\n• _log_callback → дашборд\n• context overflow → auto-checkpoint\n• session log → .a1/sessions/"]
+    CALoop --> Common
+    OLStream --> Common
+
+    %% === STYLES ===
+    style CM fill:#6366f1,color:#fff
+    style CA fill:#f97316,color:#fff
+    style OL fill:#10b981,color:#fff
+    style CMKey fill:#ef4444,color:#fff
+    style CAKey fill:#ef4444,color:#fff
+    style Common fill:#1e293b,color:#e2e8f0,stroke:#f59e0b

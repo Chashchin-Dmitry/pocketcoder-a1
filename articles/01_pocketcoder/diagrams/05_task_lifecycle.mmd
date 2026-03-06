@@ -1,0 +1,54 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '15px' } } }%%
+flowchart TD
+    %% === TASK CREATION ===
+    subgraph Create["Как создаются задачи (3 способа)"]
+        Way1["CLI\npca task add 'title'"]
+        Way2["Dashboard\nформа Quick Add\nPOST /add-task"]
+        Way3["AI Transform\nсырой текст → AI разбивает\nна 5 структурированных задач\nс приоритетами и критериями"]
+    end
+
+    Way1 --> TaskJSON
+    Way2 --> TaskJSON
+    Way3 --> Preview["Предпросмотр\n5 карточек с чекбоксами\n'+ ADD SELECTED'"] --> TaskJSON
+
+    TaskJSON[".a1/tasks.json\n{id, title, description,\nstatus, priority,\nsuccess_criteria, phase}"]
+
+    %% === TASK LIFECYCLE ===
+    TaskJSON --> Pending["PENDING\nОжидает выполнения\nПриоритет: 1-5 (1 = высший)"]
+
+    Pending --> InProgress["IN PROGRESS\nАгент взял задачу\nget_next_task() → priority ASC"]
+
+    InProgress --> AgentWork["Агент работает:\nRead → Edit → Write → Bash\nmax 25 tool calls за сессию"]
+
+    AgentWork --> Verify{"Верификация\nпройдена?"}
+
+    Verify -->|"Да"| TaskDone["DONE\ncompleted_at = ISO datetime\nзелёная галочка в дашборде"]
+
+    Verify -->|"Нет, retry < 5"| AgentWork
+    Verify -->|"Нет, retry >= 5"| TaskBlocked["BLOCKED\nblocked_reason = 'tests: 2 failed'\nкрасный бейдж"]
+
+    TaskDone --> NextCheck{Есть ещё\npending?}
+    NextCheck -->|"Да"| Pending
+    NextCheck -->|"Нет"| AllDone(["ВСЁ ВЫПОЛНЕНО\nstatus = COMPLETED"])
+
+    TaskBlocked --> NextCheck2{Режим?}
+    NextCheck2 -->|"все задачи"| Pending
+    NextCheck2 -->|"--task"| Stopped(["СТОП"])
+
+    %% === PRIORITY ===
+    subgraph Priority["Система приоритетов"]
+        direction LR
+        P1["Priority 1\n(первый)"] --> P2["Priority 2"] --> P3["Priority 3"] --> P4["Priority 4"] --> P5["Priority 5\n(последний)"]
+        DnD["Drag & Drop\nв дашборде\n→ POST /api/reorder\n→ priorities обновлены"]
+    end
+
+    %% === STYLES ===
+    style Create fill:#1e293b,color:#e2e8f0,stroke:#6366f1
+    style Priority fill:#1e293b,color:#e2e8f0,stroke:#f59e0b
+    style Pending fill:#f59e0b,color:#000
+    style InProgress fill:#3b82f6,color:#fff
+    style TaskDone fill:#10b981,color:#fff
+    style TaskBlocked fill:#ef4444,color:#fff
+    style AllDone fill:#10b981,color:#fff
+    style Stopped fill:#ef4444,color:#fff
+    style Way3 fill:#8b5cf6,color:#fff

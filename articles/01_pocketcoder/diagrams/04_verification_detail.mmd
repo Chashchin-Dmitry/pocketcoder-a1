@@ -1,0 +1,45 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '15px' } } }%%
+flowchart TD
+    Agent["Агент: 'Я закончил, COMPLETED!'"] --> Gate["Шлюз верификации\n_verify_session()"]
+
+    Gate --> T1["УРОВЕНЬ 1 — БЛОКИРУЮЩИЙ"]
+    T1 --> S1["py_compile\nвсе .py файлы"]
+    T1 --> S2["pytest -v"]
+    T1 --> S3["Файлы из checkpoint\nреально на диске?"]
+    T1 --> S4["success_criteria\nвыполнены?"]
+
+    S1 --> Pass{Всё ок?}
+    S2 --> Pass
+    S3 --> Pass
+    S4 --> Pass
+
+    Pass -->|"Да"| T2["УРОВЕНЬ 2 — ПРЕДУПРЕЖДЕНИЕ\n(не блокирует, только лог)"]
+    T2 --> L1["ruff check (линтер)"]
+    T2 --> L2["build (сборка)"]
+    T2 --> L3["git diff + status"]
+    L1 --> Done(["ПРИНЯТО\nЗадача помечена done"])
+    L2 --> Done
+    L3 --> Done
+
+    Pass -->|"Нет"| Baseline{"Эта проблема была\nДО начала работы?\n(baseline snapshot)"}
+
+    Baseline -->|"Да — старый баг"| Done
+    Baseline -->|"Нет — новый баг"| Retry{"Попытка < 5?"}
+
+    Retry -->|"Да"| FixPrompt["Инъекция ошибок\nв промпт следующей сессии:\n\n'VERIFICATION FAILED\nattempt 2/5\nBLOCKING: tests — 2 failed\nFIX before marking done.'"]
+    FixPrompt --> NextSession["Новая сессия\nАгент получает ошибки\nи пытается починить"]
+
+    Retry -->|"Нет (5 попыток)"| Blocked["ЗАДАЧА BLOCKED\ntasks.mark_blocked()\nПричина сохранена"]
+    Blocked --> WhatNext{Режим?}
+    WhatNext -->|"--task task_001"| Stop(["СТОП"])
+    WhatNext -->|"все задачи"| Next["Перейти к\nследующей задаче"]
+
+    %% === STYLES ===
+    style Agent fill:#6366f1,color:#fff
+    style T1 fill:#ef4444,color:#fff
+    style T2 fill:#f59e0b,color:#000
+    style Done fill:#10b981,color:#fff
+    style Blocked fill:#ef4444,color:#fff
+    style Stop fill:#ef4444,color:#fff
+    style FixPrompt fill:#8b5cf6,color:#fff
+    style Baseline fill:#3b82f6,color:#fff

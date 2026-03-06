@@ -1,0 +1,93 @@
+%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
+flowchart TD
+    %% === ENTRY POINT ===
+    Start(["pca start"]) --> Mode{Режим запуска?}
+    Mode -->|"pca start\n(все задачи)"| AllTasks["Режим: ВСЕ ЗАДАЧИ\nget_next_task()\nсортировка по priority ASC"]
+    Mode -->|"pca start --task task_001\n(одна задача)"| SingleTask["Режим: ОДНА ЗАДАЧА\nsingle_task_id = task_001"]
+
+    AllTasks --> Baseline
+    SingleTask --> Baseline
+
+    %% === BASELINE ===
+    Baseline["1. Захват baseline\nvalidator.run_all() ДО работы\n(старые баги не считаются)"]
+    Baseline --> SessionStart
+
+    %% === SESSION LOOP ===
+    SessionStart["2. Начало сессии\ncheckpoint.start_session()\nsession++ / status=WORKING"]
+    SessionStart --> BuildPrompt
+
+    BuildPrompt["3. Сборка промпта\ncheckpoint + tasks + queue.json\n+ ошибки верификации (если retry)"]
+    BuildPrompt --> QueueCheck
+
+    QueueCheck{"Есть сообщения\nв queue.json?"}
+    QueueCheck -->|"Да"| InjectQueue["Добавить в промпт:\nUSER MESSAGES (from queue)\n- текст сообщения"]
+    QueueCheck -->|"Нет"| Provider
+    InjectQueue --> Provider
+
+    %% === PROVIDERS ===
+    Provider{"Провайдер?"}
+    Provider -->|"claude-max\n(подписка €90/мес)"| ClaudeMax["Claude CLI subprocess\nenv.pop('CLAUDECODE')\n6 флагов (см. диаграмму 2)"]
+    Provider -->|"claude-api\n[EXPERIMENTAL]"| ClaudeAPI["Anthropic SDK\nclient.messages.stream()\n6 инструментов: Read/Write/\nEdit/Bash/Glob/Grep"]
+    Provider -->|"ollama\n[EXPERIMENTAL]"| OllamaP["Ollama Client\nclient.chat(stream=True)\nтолько текст, без tool_use"]
+
+    ClaudeMax --> StreamParse
+    ClaudeAPI --> StreamParse
+    OllamaP --> StreamParse
+
+    %% === STREAM PARSING ===
+    StreamParse["4. Real-time парсинг\nNDJSON строка за строкой\n(см. диаграмму 2)"]
+
+    StreamParse --> ContextCheck{"Контекст >= 70%\n(rate_limit_event)?"}
+    ContextCheck -->|"Да"| AutoCheckpoint["AUTO-CHECKPOINT\nСохранить состояние\nТерминировать сессию\nstatus = WORKING"]
+    AutoCheckpoint --> SessionDelay
+    ContextCheck -->|"Нет"| SessionEnd
+
+    SessionEnd["5. Сессия завершена\nСохранить метрики + session_history\nfiles_modified обновлены"]
+
+    %% === VERIFICATION ===
+    SessionEnd --> Verify["6. ВЕРИФИКАЦИЯ\n'Не верим на слово'"]
+
+    Verify --> T1["УРОВЕНЬ 1 — БЛОКИРУЮЩИЙ\npy_compile (синтаксис)\npytest (тесты)\nфайлы на диске?\nуспех-критерии?"]
+
+    T1 --> T1Result{Блокирующие\nпроблемы?}
+
+    T1Result -->|"Нет"| T2["УРОВЕНЬ 2 — ПРЕДУПРЕЖДЕНИЕ\nruff (линтер)\nbuild (сборка)\ngit diff + status"]
+    T2 --> Completed
+
+    T1Result -->|"Да"| BaselineCheck{"Это НОВАЯ проблема?\n(сравнить с baseline)"}
+    BaselineCheck -->|"Была до нас"| T2
+    BaselineCheck -->|"Новая"| RetryCheck{"retry_count < 5\n(MAX_VERIFY_RETRIES)?"}
+
+    RetryCheck -->|"Да"| RetrySession["Retry: status = WORKING\nВставить ошибки в промпт:\n'VERIFICATION FAILED\nattempt N/5\nBLOCKING: ...\nFIX before marking done'"]
+    RetrySession --> SessionDelay
+
+    RetryCheck -->|"Нет (>= 5)"| BlockTask["ЗАДАЧА BLOCKED\ntasks.mark_blocked()\nпричина: 'syntax: error...'"]
+
+    %% === BLOCKED BRANCHING ===
+    BlockTask --> BlockMode{Режим?}
+    BlockMode -->|"Одна задача\n(--task)"| StopBlocked(["СТОП\ntask_001: BLOCKED"])
+    BlockMode -->|"Все задачи"| NextTask{"Есть ещё\npending задачи?"}
+    NextTask -->|"Да"| PickNext["get_next_task()\nперейти к следующей"]
+    PickNext --> SessionStart
+    NextTask -->|"Нет"| StopNoTasks(["СТОП\nнет задач для работы"])
+
+    %% === COMPLETION ===
+    Completed{"checkpoint.status\n== COMPLETED?"}
+    Completed -->|"Нет\n(есть ещё задачи)"| SessionDelay
+    Completed -->|"Да\n(всё сделано)"| AllDone(["ВСЁ ВЫПОЛНЕНО + ВЕРИФИЦИРОВАНО\nTasks: 5/5 done\nSessions: N"])
+
+    SessionDelay["Пауза session_delay сек\n(по умолчанию 5 сек)"]
+    SessionDelay --> SessionStart
+
+    %% === STYLES ===
+    style Start fill:#6366f1,color:#fff,stroke:#4f46e5
+    style AllDone fill:#10b981,color:#fff,stroke:#059669
+    style StopBlocked fill:#ef4444,color:#fff,stroke:#dc2626
+    style StopNoTasks fill:#f59e0b,color:#000,stroke:#d97706
+    style Verify fill:#f59e0b,color:#000,stroke:#d97706
+    style BlockTask fill:#ef4444,color:#fff,stroke:#dc2626
+    style AutoCheckpoint fill:#8b5cf6,color:#fff,stroke:#7c3aed
+    style Baseline fill:#3b82f6,color:#fff,stroke:#2563eb
+    style ClaudeMax fill:#6366f1,color:#fff,stroke:#4f46e5
+    style ClaudeAPI fill:#f97316,color:#fff,stroke:#ea580c
+    style OllamaP fill:#10b981,color:#fff,stroke:#059669
