@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1280px;
+    height: 640px;
+    background: linear-gradient(135deg, #0f0a2e 0%, #1a1145 30%, #1e1550 50%, #161040 70%, #0d0825 100%);
+    font-family: 'Inter', sans-serif;
+    color: #fff;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .left {
+    width: 440px;
+    padding: 50px 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    z-index: 1;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #f97316;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 5px 14px;
+    border-radius: 4px;
+    margin-bottom: 22px;
+    width: fit-content;
+  }
+
+  .title-line1 {
+    font-size: 40px;
+    font-weight: 800;
+    color: #f97316;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .title-line2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.25;
+    margin-bottom: 18px;
+  }
+
+  .description {
+    font-size: 15px;
+    color: #a5b4c8;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    border: 1.5px solid rgba(249, 115, 22, 0.5);
+    color: #f97316;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    background: rgba(249, 115, 22, 0.08);
+  }
+
+  /* RIGHT: Dashboard */
+  .right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 25px 20px 0;
+    z-index: 1;
+  }
+
+  .screen {
+    background: #1a1a1a;
+    border-radius: 10px;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sf-bar {
+    background: #2a2a2a;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #28c840; }
+
+  .sf-url {
+    background: #1a1a1a;
+    border-radius: 4px;
+    padding: 3px 10px;
+    margin-left: 10px;
+    font-size: 10px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .sf-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 100px;
+    background: #111;
+    padding: 10px 0;
+    border-right: 1px solid #222;
+    flex-shrink: 0;
+  }
+
+  .s-logo {
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 4px 8px;
+  }
+
+  .logo-ascii {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: #f97316;
+    text-shadow: 2px 2px 0 rgba(249, 115, 22, 0.3);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .s-ver {
+    font-size: 7px;
+    color: #444;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .s-section {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #333;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 12px 2px;
+  }
+
+  .s-item {
+    padding: 4px 12px;
+    font-size: 9px;
+    color: #555;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .s-item.active {
+    background: #f97316;
+    color: #fff;
+    border-radius: 3px;
+    margin: 0 5px;
+    padding: 4px 7px;
+  }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    padding: 10px 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .m-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .m-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .m-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    background: rgba(249, 115, 22, 0.15);
+    color: #f97316;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .m-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f97316;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Cards */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+
+  .mc {
+    background: #222;
+    border-radius: 5px;
+    padding: 6px 8px;
+    border: 1px solid #2a2a2a;
+  }
+
+  .mc-l {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+  }
+
+  .mc-v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .mc-s {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 6px;
+    color: #444;
+  }
+
+  .mc-v.grn { color: #28c840; }
+  .mc-v.org { color: #f97316; }
+  .mc-v.blu { color: #6366f1; }
+
+  .mc-bar {
+    height: 3px;
+    background: #333;
+    border-radius: 2px;
+    margin-top: 3px;
+    overflow: hidden;
+  }
+
+  .mc-fill {
+    height: 100%;
+    border-radius: 2px;
+    width: 60%;
+    background: linear-gradient(90deg, #28c840, #f97316);
+  }
+
+  /* Tasks */
+  .tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .t-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    background: #1e1e1e;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+  }
+
+  .t-chk {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    border: 1.5px solid #333;
+    flex-shrink: 0;
+  }
+
+  .t-chk.done { background: #28c840; border-color: #28c840; }
+  .t-chk.prog { background: #f97316; border-color: #f97316; }
+
+  .t-name { color: #bbb; flex: 1; }
+  .t-name.dim { color: #555; }
+
+  .t-b {
+    font-size: 6px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  .t-b.done { background: #28c840; color: #fff; }
+  .t-b.prog { background: #f97316; color: #fff; }
+  .t-b.pend { background: #333; color: #666; }
+
+  /* Quick Add */
+  .quick-add {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .qa-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+
+  .qa-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #555;
+  }
+
+  .qa-btn {
+    background: #f97316;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* Stop Agent */
+  .stop-btn {
+    background: #dc2626;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px;
+    border-radius: 5px;
+    letter-spacing: 1px;
+  }
+
+  /* Message to Agent */
+  .msg-section {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .msg-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+
+  .msg-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #777;
+  }
+
+  .msg-btn {
+    background: #28c840;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+
+  /* Log */
+  .log {
+    background: #0d0d0d;
+    border-radius: 5px;
+    padding: 6px 8px;
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid #1a1a1a;
+  }
+
+  .log-h {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+  }
+
+  .log-dots { display: flex; gap: 3px; }
+  .ld { width: 5px; height: 5px; border-radius: 50%; }
+  .ld-r { background: #ff5f57; }
+  .ld-y { background: #ffbd2e; }
+  .ld-g { background: #28c840; }
+
+  .log-p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #444;
+  }
+
+  .log-end {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    color: #dc2626;
+    margin-left: auto;
+  }
+
+  .ll {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    line-height: 1.65;
+    display: flex;
+    gap: 5px;
+  }
+
+  .ll-t { color: #333; width: 32px; flex-shrink: 0; }
+  .ll-k { font-weight: 600; width: 34px; flex-shrink: 0; }
+  .ll-k.think { color: #eab308; }
+  .ll-k.read { color: #3b82f6; }
+  .ll-k.edit { color: #f97316; }
+  .ll-k.bash { color: #a855f7; }
+  .ll-k.verify { color: #28c840; }
+  .ll-m { color: #666; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="badge">OPEN SOURCE</div>
+    <div class="title-line1">PocketCoder-A1</div>
+    <div class="title-line2">Автономный Coding Agent<br>с верификацией и дашбордом</div>
+    <div class="description">
+      Написал задачи, нажал Start, ушёл спать.<br>
+      Агент кодит, верифицирует, не врёт.
+    </div>
+    <div class="tags">
+      <span class="tag">Python</span>
+      <span class="tag">Auto-Claude</span>
+      <span class="tag">Auto-Ollama</span>
+      <span class="tag">Verification</span>
+      <span class="tag">Dashboard</span>
+      <span class="tag">Autonomous Agent</span>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="screen">
+      <div class="sf-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+        <div class="sf-url">localhost:7331</div>
+      </div>
+      <div class="sf-body">
+        <div class="sidebar">
+          <div class="s-logo">
+            <div class="logo-ascii">A1</div>
+            <div class="s-ver">pocketcoder // v0.2.4</div>
+          </div>
+          <div class="s-section">Overview</div>
+          <div class="s-item active">Dashboard</div>
+          <div class="s-item">Tasks</div>
+          <div class="s-item">Sessions</div>
+          <div class="s-section">Activity</div>
+          <div class="s-item">Activity Log</div>
+          <div class="s-item">Commits</div>
+          <div class="s-section">Settings</div>
+          <div class="s-item">Settings</div>
+        </div>
+        <div class="main">
+          <div class="m-header">
+            <div class="m-title">// DASHBOARD</div>
+            <div class="m-status">
+              <div class="m-status-dot"></div>
+              WORKING
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="mc">
+              <div class="mc-l">Tasks</div>
+              <div class="mc-v org">3/5</div>
+              <div class="mc-bar"><div class="mc-fill"></div></div>
+            </div>
+            <div class="mc">
+              <div class="mc-l">Session</div>
+              <div class="mc-v blu">#7</div>
+              <div class="mc-s">WORKING</div>
+            </div>
+            <div class="mc">
+              <div class="mc-l">Tokens</div>
+              <div class="mc-v">8.2K</div>
+              <div class="mc-s">in / 2.1K out</div>
+            </div>
+          </div>
+
+          <div class="cards">
+            <div class="mc">
+              <div class="mc-l">Cost</div>
+              <div class="mc-v org">$0.05</div>
+              <div class="mc-s">this session</div>
+            </div>
+            <div class="mc">
+              <div class="mc-l">Duration</div>
+              <div class="mc-v">34s</div>
+              <div class="mc-s">current session</div>
+            </div>
+            <div class="mc">
+              <div class="mc-l">Files</div>
+              <div class="mc-v">11</div>
+              <div class="mc-s">modified</div>
+            </div>
+          </div>
+
+          <div class="tasks">
+            <div class="t-row">
+              <div class="t-chk done"></div>
+              <span class="t-name">Clone epotos-templates repository</span>
+              <span class="t-b done">DONE</span>
+            </div>
+            <div class="t-row">
+              <div class="t-chk done"></div>
+              <span class="t-name">Analyze provider configuration</span>
+              <span class="t-b done">DONE</span>
+            </div>
+            <div class="t-row">
+              <div class="t-chk done"></div>
+              <span class="t-name">Design extensible settings arch</span>
+              <span class="t-b done">DONE</span>
+            </div>
+            <div class="t-row">
+              <div class="t-chk prog"></div>
+              <span class="t-name">Implement provider switching UI</span>
+              <span class="t-b prog">IN PROGRESS</span>
+            </div>
+            <div class="t-row">
+              <div class="t-chk"></div>
+              <span class="t-name dim">Verify switching works e2e</span>
+              <span class="t-b pend">PENDING</span>
+            </div>
+          </div>
+
+          <!-- Quick Add -->
+          <div>
+            <div class="qa-label">Quick Add</div>
+            <div class="quick-add">
+              <div class="qa-input">Task title...</div>
+              <div class="qa-btn">+ ADD</div>
+            </div>
+          </div>
+
+          <!-- Stop Agent -->
+          <div class="stop-btn">STOP AGENT</div>
+
+          <!-- Message to Agent -->
+          <div>
+            <div class="msg-label">Message to Agent</div>
+            <div class="msg-section">
+              <div class="msg-input">Write documentation for providers...</div>
+              <div class="msg-btn">SEND</div>
+            </div>
+          </div>
+
+          <!-- Live Log -->
+          <div class="log">
+            <div class="log-h">
+              <div class="log-dots">
+                <div class="ld ld-r"></div>
+                <div class="ld ld-y"></div>
+                <div class="ld ld-g"></div>
+              </div>
+              <div class="log-p">agent@pocketcoder ~ live-log</div>
+              <div class="log-end">RAW</div>
+            </div>
+            <div class="ll">
+              <span class="ll-t">14:23</span>
+              <span class="ll-k think">THINK</span>
+              <span class="ll-m">Analyzing provider config...</span>
+            </div>
+            <div class="ll">
+              <span class="ll-t">14:23</span>
+              <span class="ll-k read">READ</span>
+              <span class="ll-m">src/ai-client.ts</span>
+            </div>
+            <div class="ll">
+              <span class="ll-t">14:24</span>
+              <span class="ll-k edit">EDIT</span>
+              <span class="ll-m">src/providers.py +42 lines</span>
+            </div>
+            <div class="ll">
+              <span class="ll-t">14:24</span>
+              <span class="ll-k bash">BASH</span>
+              <span class="ll-m">pytest -q (6 passed)</span>
+            </div>
+            <div class="ll">
+              <span class="ll-t">14:25</span>
+              <span class="ll-k verify">VERIFY</span>
+              <span class="ll-m">3/3 checks passed</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

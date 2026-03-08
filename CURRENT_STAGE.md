@@ -877,146 +877,103 @@ git push origin main
 
 ---
 
-## ARTICLE 01 — HABR PUBLICATION
+## ARTICLE 01 — HABR + MEDIUM PUBLICATION
 
-### Контекст и мотивация (сырой ввод автора)
+**Last updated**: 2026-03-08
+**Status**: СТАТЬИ НАПИСАНЫ (RU + EN), обложки создаются, публикация в процессе
 
-**Проблема:**
-- 10+ проектов, все code-based
-- ИИ не заменяет людей — они просто БОЛЬШЕ работают (подтверждено личным опытом)
-- Подписка Claude Max за €90/мес — хочется чтобы она работала пока спишь/гуляешь
-- Предыдущий PocketCoder: люди писали баги, автор даже не залил фиксы (нет времени)
-- Казалось бы залить изменения — просто, но нет, это тоже время
-
-**Решение — PocketCoder-A1:**
-- "A1" = "а один" (русская игра слов). Маскот/кодовое имя "Alto Moscow" — мелкая шутка
-- Написал задачи перед сном → агент выполняет → утром готово
-- НЕ как OpenClaw (попробовал — вообще не сработало, криво всё)
-- Два разных продукта: OpenClaw = просто агент, A1 = менеджер задач + автономный исполнитель
-- Сделан прежде всего для Claude Code, но также LLaMA framework + Claude API + DeepSeek-совместимые
-- Сделан для себя, потом open source
-
-**Тестирование на epotos-templates:**
-- Реальный проект для компании "Epota" — обработка документов + генерация шаблонов
-- Заливаешь сырой документ → ИИ разбивает на методы за 5-50 мин → шаблонная библиотека
-- Форматы: XML, DOCX, PPTX, LibreOffice
-- Хотел добавить облачного провайдера (не только Ollama) → OpenAI-compatible
-- Скоро выложит epotos-templates в open source
-- Скриншоты 01-22: полный flow от пустого дашборда до 5/5 completed
-
-**Дисклеймеры (в статье):**
-- LLaMA framework и Claude API = ЭКСПЕРИМЕНТАЛЬНЫЕ
-- Welcome GitHub PRs — автор один, физически не успевает
-- Ошибка с прошлым PocketCoder: не принимал контрибьюции (не просил)
-- В A1: позитивно реагирует на PR, добавит
-
-**Вайб-кодинг бум:**
-- Прикольно было бы больше тулзов для оптимизации работы
-- Не замена человеку, а расширение возможностей
-
-### Структура статьи
+### Текущее состояние
 
 ```
-Стиль: СТРОГО как на Хабре (habr.com/ru/articles/991022/)
-- Конверсационный тон, "мы", честность о багах
-- Технический depth с код-блоками
-- Сравнительные таблицы
-- Скриншоты с подписями
-- Подробные разделы с якорями
+DONE:
+  [x] 6 mermaid диаграмм (EN, base theme, elk layout) — diagrams/01-06.mmd + 1-6.png
+  [x] article_ru.md — финальная версия для Хабра
+  [x] article_en.md — финальная версия для Medium
+  [x] Стиль: без тире, без буллетов, без секции багов, Habr-стиль концовка с ТГ
+  [x] Скрин OpenClaw добавлен (openclaw.png)
+  [x] Версия с метками [photo_N] для ручной вставки картинок на Хабре
+  [x] Коммит a2666c1 запушен
+
+IN PROGRESS:
+  [ ] Обложки cover_ru.html / cover_en.html — мокап дашборда (сайдбар, карточки, лог, таски)
+  [ ] Публикация на Хабре — вставка текста + ручная загрузка фото
+  [ ] Публикация на Medium — то же EN версия
+
+TODO:
+  [ ] Заскринить обложки 1280x640 → cover_ru.png, cover_en.png
+  [ ] Загрузить 31 фото + openclaw на Хабр, заменить пути на CDN
+  [ ] Проверить рендеринг markdown на Хабре (таблицы, код-блоки)
 ```
 
-```
-1. Вступление / Проблема
-   ├── Личная история: 10+ проектов, ИИ = больше работы
-   ├── €90/мес Claude — пока сплю, пусть работает
-   ├── OpenClaw попробовал — не сработало
-   └── Идея: менеджер задач + автономный агент
-
-2. Что такое PocketCoder-A1
-   ├── CLI + Web Dashboard
-   ├── 7086 строк, 15 модулей
-   ├── 3 провайдера: Claude Max, Claude API, Ollama
-   ├── Отличие от PocketCoder v1 (CLI → autonomous agent)
-   └── Отличие от OpenClaw (task manager vs generic agent)
-
-3. Архитектура
-   ├── Диаграмма: CLI/Dashboard → Loop → Validator → Checkpoint
-   ├── Stream-JSON: живые логи
-   ├── Верификация: "не верим на слово" (3-tier gate)
-   ├── Anti-infinite-loop: baseline + max retries + BLOCKED
-   └── Token metrics: rate_limit_event → карточки
-
-4. Кейс: epotos-templates (скриншоты 01-22)
-   ├── 01-05: пустая страница → AI Transform → 5 задач за 30 сек
-   ├── 06-09: Start Agent + Settings
-   ├── 10-13: живой мониторинг (лог, tool calls, codebase analysis)
-   ├── 14-16: прогресс (2/5 → provider architecture)
-   ├── 17-18: Queue Message — пользователь пишет агенту
-   ├── 19-22: 5/5 done → документация → COMPLETED
-   └── 23-26: light theme (paired with dark screenshots)
-
-5. Dashboard (8 страниц)
-   ├── Скриншоты ключевых страниц
-   ├── 6 метрик-карточек
-   ├── 8 типов иконок лога
-   └── Transform flow
-
-6. Баги и честность
-   ├── 16 багов найдено и починено
-   ├── Таблица багов (как в v1 статье)
-   └── Дисклеймер: experimental, welcome PRs
-
-7. Заключение
-   ├── Вайб-кодинг бум → больше тулзов
-   ├── PyPI + uv (скоро)
-   ├── epotos-templates open source (скоро)
-   └── Ссылки: GitHub, Telegram, сайт
-```
-
-### Причинно-следственная цепочка статьи
+### Причинно-следственная цепочка
 
 ```
-Проблема: 10+ проектов + €90/мес подписка простаивает ночью
-  └── Попытка: OpenClaw → не сработало
+Проблема: 10+ проектов + 90 евро/мес подписка простаивает ночью
+  └── Попытка: OpenClaw → не сработало (скрин openclaw.png)
       └── Решение: написать свой автономный агент
           └── PocketCoder-A1: CLI + Dashboard + 3 провайдера
-              └── Тестирование на реальном проекте (epotos-templates)
-                  └── Результат: 5/5 задач за 13 минут автономно
-                      └── Бонус: Queue Message (пишешь агенту пока работает)
-                          └── Бонус: агент сам написал документацию по запросу
-                              └── Вывод: работает, experimental, welcome PRs
+              └── 6 диаграмм архитектуры (01-06)
+                  └── Тестирование на реальном проекте epotos-templates
+                      └── 26 скриншотов полного flow (01-26)
+                          └── Результат: 5/5 задач за 13 минут автономно
+                              └── Статьи: RU (Хабр) + EN (Medium)
+                                  └── Обложки: HTML → скриншот (как в v1)
 ```
 
-### Скриншоты: что куда
+### Файлы статьи
 
-| # | Screenshot | Article section |
-|---|-----------|-----------------|
-| 01 | Tasks empty | Case study — начало |
-| 02-04 | Transform flow | Case study — создание задач |
-| 05 | 5 tasks created | Case study — задачи готовы |
-| 06 | Dashboard idle | Case study — перед стартом |
-| 07 | Task detail empty | Case study — детали задачи |
-| ~~08~~ | ~~DROPPED~~ | ~~duplicate of 07~~ |
-| 09 | Settings | Architecture / Settings |
-| 10 | Dashboard running + log | Case study — агент работает |
-| 11 | Task detail live | Case study — живые метрики |
-| 12 | Dashboard 1/5 done | Case study — первый результат |
-| 13 | Log — codebase analysis | Case study — анализ кода |
-| 14-15 | Tasks 2/5 done | Case study — прогресс |
-| 16 | Log — provider architecture | Case study — архитектура |
-| 17-18 | Queue message flow | Case study — сообщение агенту |
-| 19 | Dashboard 5/5 done | Case study — всё готово |
-| 20 | Log — verification + docs | Case study — верификация |
-| 21 | Log — memory write | Case study — документация |
-| 22 | Dashboard COMPLETED | Case study — финал |
-| 23 | Tasks light theme | Paired with 05 or 14 |
-| 24 | Dashboard light | Paired with 06 or 22 |
-| 25 | Dashboard log light | Paired with 10 or 13 |
-| 26 | Task detail done light | Paired with 07 or 11 |
+| Файл | Что | Статус |
+|------|-----|--------|
+| `article_ru.md` | Статья RU для Хабра | DONE |
+| `article_en.md` | Статья EN для Medium | DONE |
+| `cover_ru.html` | Обложка RU (HTML, скринить) | IN PROGRESS |
+| `cover_en.html` | Обложка EN (HTML, скринить) | IN PROGRESS |
+| `openclaw.png` | Скриншот сайта OpenClaw | DONE |
+| `diagrams/1-6.png` | 6 диаграмм PNG | DONE |
+| `diagrams/01-06.mmd` | 6 mermaid исходников | DONE |
+| `screenshots/01-26.png` | 26 скриншотов flow | DONE |
+| `SCREENSHOTS_MAP.md` | Индекс скриншотов + план | DONE |
 
-### Habr article v1 — ключевые моменты для reference
+### Маппинг фото для статьи
+
+| Метка | Файл | Откуда |
+|-------|------|--------|
+| [photo_openclaw] | openclaw.png | Раздел 1 — OpenClaw не сработал |
+| [photo_1] | diagrams/1.png | 3.1 Общая схема |
+| [photo_2] | diagrams/2.png | 3.2 Claude CLI subprocess |
+| [photo_3] | diagrams/4.png | 3.3 Верификация |
+| [photo_4] | diagrams/6.png | 3.4 Провайдеры |
+| [photo_5] | diagrams/3.png | 3.5 Real-time поток |
+| [photo_6] | diagrams/5.png | 3.6 Жизненный цикл задачи |
+| [photo_7-31] | screenshots/01-26.png | Раздел 4 — Кейс epotos |
+
+### Стиль статьи (утверждённый)
+
+- Без длинных тире (используем запятые)
+- Без буллет-листов (переводим в текст)
+- Без секции багов
+- Конверсационный тон, "я"/"мы"
+- Технический depth: код-блоки, таблицы, диаграммы
+- Концовка: ТГ канал + сайт (1:1 как в v1)
+- Референс стиля: https://habr.com/ru/articles/991022/
+
+### Обложка (текущая версия)
+
+Левая часть:
+- Бейдж OPEN SOURCE (оранжевый)
+- PocketCoder-A1 (оранжевый заголовок)
+- Подзаголовок (белый)
+- Описание (серый)
+- Теги: Python, Claude Code, Verification, Dashboard, Multi-provider
+
+Правая часть — мокап дашборда в браузере:
+- browser bar с localhost:7331
+- Сайдбар: A1 логотип, навигация (Dashboard, Tasks, Sessions, Activity Log, Commits, Settings)
+- 6 карточек метрик (Tasks 5/5, Session #12, Tokens 12.4K, Cost $0.08, Duration 48s, Files 23)
+- Список задач (5 DONE)
+- Live log (THINK, READ, EDIT, BASH, VERIFY с цветными метками)
+
+### Habr v1 reference
 - URL: https://habr.com/ru/articles/991022/
 - 21K читателей, 37 upvotes, 146 bookmarks, 69 комментов
-- Структура: проблема → конкуренты (Aider/Cline/OpenCode/KiloCode) → сравнительная таблица → что мы сделали → live demo → выводы
-- Стиль: "мы", конверсационный, честность о багах, код-блоки, таблицы
-- В A1 статье: конкурентов подробно НЕ разбираем (не нашёл прямых аналогов), фокус на use case
+- В A1: конкурентов подробно НЕ разбираем, фокус на use case
