@@ -1,340 +1,357 @@
-# Building an Autonomous Coding Agent That Doesn't Trust Itself
+# I Built an Agent That Codes While I Sleep. It Lies.
 
-> Or why your AI agent lies to your face, and what to do about it.
+> AI doesn't replace people, people just work more. So let's at least make AI work while we sleep.
 
 ---
 
-I have to admit something embarrassing - we actually caught our agent lying. It wrote `"status": "COMPLETED"` in the checkpoint file, but the tests weren't passing. Files it claimed to have "created" didn't exist on disk. We spent a week teaching the agent not to lie.
+I have 10+ projects. All through Claude Code. A subscription at 90 euros a month. And every evening the same thing: I close the laptop, the subscription sits idle. Next morning, context reset, explain everything again.
 
-That's how **PocketCoder-A1** was born - an autonomous coding agent with built-in verification, a web dashboard, and multi-provider support. In this article - the full story: architecture, 13 bugs we found, a Live Demo with screenshots, and why "don't trust the agent" isn't paranoia but engineering discipline.
+I thought: what if I write tasks before bed, press Start, and wake up to results? Not just "the agent wrote something", but with real verification. Because, as it turns out, the agent can write `"status": "COMPLETED"` in the checkpoint while tests are failing. Files it "created" don't exist on disk.
+
+We caught the agent lying. And spent a week teaching it not to.
+
+That's how **PocketCoder-A1** was born: an autonomous coding agent with verification, a web dashboard, and multi-provider support. 7086 lines of Python, 15 modules, zero frameworks.
 
 ---
 
 ## Table of Contents
 
 1. [Why this exists](#1-why-this-exists)
-2. [Architecture: 13 modules, 5000+ lines](#2-architecture)
-3. [Agent Loop: the heart of the system](#3-agent-loop)
-4. [Verification: "Don't trust, verify"](#4-verification)
-5. [Web Dashboard: 7 pages, no frameworks](#5-web-dashboard)
-6. [Providers and configuration](#6-providers-and-configuration)
-7. [Stream-JSON: real-time live logs](#7-stream-json)
-8. [13 bugs we found](#8-bugs)
-9. [Live Demo: from empty project to results](#9-live-demo)
-10. [E2E testing: 6 tests passed](#10-e2e-testing)
-11. [Conclusions and what's next](#11-conclusions)
+2. [What is PocketCoder-A1](#2-what-is-pocketcoder-a1)
+3. [Architecture](#3-architecture)
+4. [Case study: epotos-templates](#4-case-study-epotos-templates)
+5. [Dashboard: 8 pages, no frameworks](#5-dashboard)
+6. [Conclusions and what's next](#6-conclusions-and-whats-next)
 
 ---
 
 ## 1. Why this exists
 
-You know that feeling when you open Claude Code, give it a task, it works on it, then the context runs out - and you start over? Explaining the same project, the same files, the same architecture. Every time.
+You know that feeling when AI tools don't replace your work but add to it? I started doing things more efficiently and ended up with more projects. Now there are 10+. All code-based. All through Claude Code.
 
-We wanted a simple thing - press a button, go grab coffee, come back to working code. But not just "the agent wrote something and said it's done" - with actual verification. Because, as we discovered, the agent can say "COMPLETED" when nothing actually works.
+The problem is simple. I'm working on one project while thoughts about another keep spinning: "need to add a DeepSeek provider", "rewrite the config", "write tests". I write them down somewhere. But my hands won't get to it for a week. Meanwhile the 90-euro subscription keeps ticking.
 
-PocketCoder-A1 solves three problems. First - autonomy: the agent works in sessions, saves state between them, picks up the next task automatically. Second - verification: after each session, a three-tier check runs, and if something's wrong, the agent gets the errors in its next prompt and tries to fix them. Third - observability: the web dashboard shows in real time what the agent is doing, which files it reads, how many tokens it spends.
+I tried OpenClaw. It didn't work, even with a good model nothing came together for me. Maybe I connected it wrong, maybe something else, but the result was zero.
 
----
+So I decided to build my own. The idea is simple: write tasks, go for a walk or sleep, come back to results. The agent works in sessions, saves state, picks up the next task automatically. After each session it runs real verification: pytest, py_compile, file checks on disk. A web dashboard shows what's happening in real time. Primary provider is Claude Max, plus Claude API and Ollama as experimental.
 
-## 2. Architecture
-
-The entire project is 13 Python modules and roughly 5300 lines of code. Zero frameworks. The HTTP server is built on standard `http.server`, JSON parsing uses standard `json`, file operations use `pathlib`. The only external dependencies are `playwright` for E2E tests and optionally `anthropic` and `ollama` for alternative providers.
-
-![PocketCoder-A1 Architecture](diagrams/architecture.png)
-
-The file structure looks like this:
-
-```
-a1/                              # 4200+ lines of core code
-├── __init__.py           (6)    # Version 0.1.0
-├── loop.py             (1151)   # Brain: subprocess -> stream-json -> verify -> metrics
-├── dashboard.py        (2589)   # Web UI: 7 pages, 17 API, 6 cards, live log
-├── validator.py         (361)   # Eyes: syntax, tests, lint, build, git, criteria
-├── cli.py               (368)   # CLI: pca init/task/start/status/ui/config
-├── config.py            (126)   # Settings: priorities CLI > env > config > defaults
-├── tasks.py             (211)   # Tasks: CRUD, priority, reorder, criteria
-├── checkpoint.py        (146)   # State: session, status, metrics, decisions
-└── tester/             (1087)   # Vision QA agent
-    ├── runner.py        (419)   # Main loop: scenario -> steps -> screenshot -> analyze
-    ├── scenarios.py     (203)   # 7 test scenarios
-    ├── report.py        (193)   # HTML/JSON reports
-    ├── analyzer.py      (142)   # Claude Vision API
-    └── browser.py       (124)   # Playwright wrapper
-```
-
-The largest module is `dashboard.py` at 2589 lines. It's a full web server with 7 pages and 17 API endpoints, written without a single framework. All CSS, HTML, and JavaScript are generated directly in Python through `string.Template`. Sounds insane, but it works perfectly - zero dependencies, instant startup, one file.
-
-The second largest is `loop.py` at 1151 lines. This is the brain of the system: it launches Claude as a subprocess, parses the NDJSON stream in real time, updates metrics, and after each session kicks off verification.
+Built primarily for myself. I'll actually use this product. But I put it in open source, maybe someone else will find it useful too.
 
 ---
 
-## 3. Agent Loop
+## 2. What is PocketCoder-A1
 
-Here's what happens when you click "Start Agent" on the dashboard or run `pca start`:
+CLI + web dashboard. Installation:
 
-![Agent Loop Lifecycle](diagrams/agent_loop.png)
+```bash
+git clone https://github.com/Chashchin-Dmitry/pocketcoder-a1.git
+cd pocketcoder-a1
+pip install -e .
+```
 
-The core of the system is launching Claude CLI as a subprocess. Sounds simple, but we found 9 bugs just in this part. Here's what the final launch looks like:
+Initialize on any project:
+
+```bash
+pca init /path/to/your-project
+pca ui -d /path/to/your-project
+```
+
+Dashboard opens at `http://localhost:7331`. Add tasks, press Start Agent, the agent works autonomously.
+
+**Requirements:** Python 3.10+, [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`npm i -g @anthropic-ai/claude-code`).
+
+| Attribute | Value |
+|-----------|-------|
+| Lines of code | 7086 |
+| Modules | 15 |
+| Dashboard pages | 8 |
+| API endpoints | 24 |
+| Providers | 3 |
+| E2E tests | 6/6 |
+
+How it differs from PocketCoder v1 (my previous project): v1 is a CLI agent for local models, interactive. A1 is an autonomous task manager + executor. Press a button, leave. A completely different product.
+
+---
+
+## 3. Architecture
+
+The entire project is 15 Python modules. Zero frameworks. HTTP server on standard `http.server`, JSON via standard `json`, files via `pathlib`. The only external dependencies are `playwright` for E2E tests and optionally `anthropic` / `ollama` for alternative providers.
+
+### 3.1 Full picture
+
+Here's how the system works end-to-end, from `pca start` to completion:
+
+![Full agent loop](1.png)
+
+The agent starts, captures a baseline (validation snapshot BEFORE work), builds a prompt, works through Claude CLI, parses results in real time, verifies. If everything passes, it accepts the result. If not, it injects errors into the next session and tries again. Let's break down each piece.
+
+### 3.2 Claude CLI as subprocess
+
+The core of the system is launching Claude CLI as a subprocess. Sounds simple, but this is where the sneakiest problems were hiding.
+
+![Claude CLI subprocess: flags, parsing, callback](2.png)
+
+The final launch code:
 
 ```python
 import os, subprocess
 
 env = os.environ.copy()
-env.pop("CLAUDECODE", None)  # BUG #3: without this, nested sessions crash
+env.pop("CLAUDECODE", None)  # without this, nested sessions crash
 
 proc = subprocess.Popen(
-    ["claude", "-p", prompt,                    # BUG #1: forgot the -p flag
-     "--dangerously-skip-permissions",           # BUG #4: without this, agent waits for confirmation
+    ["claude", "-p", prompt,
+     "--dangerously-skip-permissions",
      "--no-session-persistence",
-     "--max-turns", str(self.max_turns),         # BUG #5: without a limit, agent runs forever
-     "--verbose",                                # BUG #9: without this, stream-json doesn't work with -p
+     "--max-turns", "25",
+     "--verbose",
      "--output-format", "stream-json"],
     cwd=str(project_dir),
     env=env,
-    stdout=subprocess.PIPE,                      # BUG #2: without this, no output captured
+    stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
     bufsize=1,
 )
 ```
 
-Every comment in the code is a bug that cost us between 30 minutes and 2 hours to find. The sneakiest one is `env.pop("CLAUDECODE", None)`. Claude Code sets a `CLAUDECODE=1` environment variable. If you launch `claude` as a subprocess inside Claude Code, it detects this variable and crashes with "cannot launch inside another session". The fix is one line, but finding the cause was hard.
+Why exactly like this? Claude Code sets `CLAUDECODE=1` in the environment. The subprocess inherits this, the inner `claude` sees the variable and crashes: "cannot launch inside another session". Fix is one line, `env.pop`. Finding the cause took 2 hours because the error didn't show up in stdout.
 
-The prompt the agent receives is assembled from several sources: the current checkpoint (which session, what status), the task list with priorities (the agent takes the task with the lowest priority number), queued messages (if the user sent something through the dashboard), and most importantly - verification errors from the previous session. If the agent said "COMPLETED" but tests failed, it will see this in its next prompt.
+Another undocumented quirk: `--output-format stream-json` without `--verbose` just goes silent. Nothing. Another 2 hours.
 
----
+| Flag | Why |
+|------|-----|
+| `-p prompt` | Non-interactive mode |
+| `--dangerously-skip-permissions` | Auto-approve all tool_use |
+| `--no-session-persistence` | Don't pollute session history |
+| `--max-turns 25` | Prevents infinite execution |
+| `--verbose` | Required with stream-json + -p |
+| `--output-format stream-json` | NDJSON stream instead of buffering |
 
-## 4. Verification: "Don't trust, verify"
-
-This is the most important part of the system. And the most interesting.
-
-![Verification System](diagrams/verification.png)
-
-When the agent says "COMPLETED", we don't believe it. A three-tier check kicks in.
-
-**First tier - BLOCKING.** If any check fails, the session is not accepted. This includes `py_compile` on all Python files (syntax), `pytest` (tests), verifying that files from `files_modified` actually exist on disk, and checking `success_criteria` from the task. This is the minimum bar - without passing these, work cannot be considered done.
-
-**Second tier - WARNING.** Checks run but results are only logged. This includes `ruff` (linter), `python -m build` or `npm run build` (build), and `git diff` (what changed). Warnings don't block acceptance but appear in the log.
-
-**Third tier - ANTI-LOOP.** This protects against infinite loops. Before the first session, we capture a "baseline" - a snapshot of all pre-existing issues. If the project already had 3 linter errors before our agent touched it, we don't blame the agent for those 3 errors. Only NEW issues count. And if the agent can't fix a problem in 3 attempts, we force-stop (`force_accept`) to avoid spinning forever.
-
-The cause-effect chain looks like this:
-
-```
-Agent says "COMPLETED"
-  └── _verify_session()
-      ├── TIER 1 BLOCKING (must pass):
-      │   ├── syntax: py_compile all .py
-      │   ├── tests: pytest
-      │   ├── files_exist: checkpoint files on disk?
-      │   └── success_criteria: heuristic match
-      │
-      ├── TIER 2 WARNING (log only):
-      │   ├── lint: ruff
-      │   ├── build: python -m build / npm run build
-      │   └── git: diff + status
-      │
-      └── TIER 3 ANTI-LOOP:
-          ├── Baseline: pre-existing issues don't count
-          ├── Max 3 retries -> force_accept
-          └── Errors -> next session prompt
-```
-
-One of the most interesting bugs we found right here. Bug #12: the `success_criteria` check did `.lower()` on the criteria string before comparison. Seems logical - case-insensitive matching. But on Linux the filesystem is case-sensitive. The criteria "Create HealthCheck.py" became "create healthcheck.py" - and the file `HealthCheck.py` wasn't found. Fix: regex-match on the original string, without `.lower()`.
-
----
-
-## 5. Web Dashboard
-
-The dashboard is 2589 lines of pure Python. No React, no Vue, not even Flask. Standard `http.server.BaseHTTPRequestHandler` with `string.Template` for HTML.
-
-![Dashboard - dark theme](screenshots/01_dashboard_dark.png)
-
-The main page has 6 metric cards. Tasks shows progress (2/5 done) with a progress bar. Session shows the current session number and status. Tokens shows input and output tokens with context usage percentage. Cost shows approximate session cost in dollars. Duration has a live timer (JavaScript updates every second). Files shows the count of modified files.
-
-Below the cards - a list of recent tasks, a quick-add form, a Start/Stop button, a terminal log styled like macOS Terminal (with the red-yellow-green dots and monospace font), and a Recent Activity block.
-
-| Page | URL | What it does |
-|------|-----|-------------|
-| Dashboard | `/` | 6 cards, Start/Stop, live log |
-| Tasks | `/tasks` | List + DnD + expandable details |
-| Sessions | `/sessions` | Session history with metrics |
-| Activity Log | `/log` | Action timeline |
-| Commits | `/commits` | Git history with type icons |
-| Transform | `/transform` | Text -> tasks via AI |
-| Settings | `/settings` | Provider, API key, Ollama, parameters |
-
-![Tasks page with expanded detail](screenshots/02_tasks_expanded.png)
-
-On the Tasks page, each task is clickable - it expands a detail block with stage progress bars, phase, success criteria, and dates. Tasks can be reordered via drag-and-drop to change priority. Priority is shown as a colored badge (#1, #2, #3...).
-
-![Sessions with metrics](screenshots/03_sessions_metrics.png)
-
-The Sessions page shows the current session (highlighted with an accent stripe on the left) and the history of previous ones. Each session card displays 5 metrics: files, task, tokens (in/out), duration, and tool call count.
-
-![Commits with type icons](screenshots/04_commits_icons.png)
-
-Commits isn't just `git log --oneline`. Each commit gets a colored icon by type: green plus for `feat:`, red bug for `fix:`, blue file for `docs:`, yellow arrow for `refactor:` and `chore:`. Plus the hash in a monospace badge, relative time ("2 hours ago"), and author name.
-
-![Settings - provider configuration](screenshots/05_settings_provider.png)
-
-![Transform - 3-step guide](screenshots/06_transform_guide.png)
-
-Transform is an AI helper for turning raw text into structured tasks. Type in "add login, registration, password reset, write tests" - get 4 tasks with descriptions. At the top of the page - a visual 3-step guide: Write, Transform, Confirm.
-
-The terminal log deserves special mention. This isn't just text in a `<pre>` block. Each line is classified by type: READ (blue), EDIT (orange), WRITE (green), BASH (purple), THINK (yellow), TEXT (gray), METRIC (teal), VERIFY (green). Timestamp on the left, type label in the middle, text on the right. Catppuccin Mocha style with dark background #1e1e2e. Updates via AJAX every 2 seconds.
-
----
-
-## 6. Providers and Configuration
-
-PocketCoder supports three providers. Claude Max is the primary one, working through the Claude CLI subprocess with full tooling. Claude API connects directly to the Anthropic API through the SDK, implementing a full agentic loop with 6 tools (Read, Write, Edit, Bash, Glob, Grep). Ollama runs local models with simple streaming and no tool calling. Claude API and Ollama are marked as EXPERIMENTAL.
-
-Settings are stored in `.a1/config.json` and resolved through a priority chain:
-
-```
-CLI flags  >  environment variables  >  config.json  >  defaults
-```
-
-For example, an API key can be provided three ways: `pca start --api-key sk-...`, environment variable `ANTHROPIC_API_KEY`, or through the dashboard Settings -> API Key -> Save. CLI has the highest priority.
-
-Through CLI it looks like this:
-
-```bash
-pca config                           # show all settings
-pca config set provider ollama       # switch provider
-pca start --provider claude-api      # one-time override via flag
-pca start --ollama-model qwen3:30b   # choose model
-```
-
----
-
-## 7. Stream-JSON: real-time live logs
-
-One of the most frustrating problems during development - we launched the dashboard, clicked Start Agent, and... nothing. The log was empty. The agent seemed to be working (process existed), but not a single line of output.
-
-The cause was buffering. Claude CLI in `-p` (print mode) buffers all output until the process finishes. `readline()` blocks and waits. The solution is the `--output-format stream-json` flag together with `--verbose`. Without `--verbose`, stream-json doesn't work with `-p` - this is an undocumented quirk of Claude CLI that cost us 2 hours.
-
-With stream-json, Claude outputs NDJSON - one JSON object per line. Here are real examples:
+With `stream-json`, Claude outputs NDJSON, one JSON object per line:
 
 ```json
 {"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/src/app.py"}}]}}
-{"type":"assistant","message":{"content":[{"type":"text","text":"I'll fix the bug in line 42..."}]}}
-{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"Let me analyze the error..."}]}}
-{"type":"rate_limit_event","usage":{"input_tokens":12400,"output_tokens":3200,"cache_read_input_tokens":8000}}
+{"type":"rate_limit_event","usage":{"input_tokens":12400,"output_tokens":3200}}
 {"type":"result","result":"Task completed successfully."}
 ```
 
-The parser in `loop.py` classifies each event and sends it to the dashboard with the appropriate type. `tool_use` with name `Read` becomes type "read" (blue). `tool_use` with name `Bash` becomes "bash" (purple). `text` becomes "text" (gray). `thinking` becomes "thinking" (yellow). `rate_limit_event` updates metrics (tokens, cost).
+The parser classifies each event and sends it to the dashboard. `tool_use` named `Read` becomes type "read" (blue), `Bash` becomes "bash" (purple), `thinking` becomes yellow. 8 icon types total.
+
+### 3.3 Verification: "Don't trust, verify"
+
+The most important part of the system.
+
+![Three-tier verification](4.png)
+
+When the agent says "COMPLETED", we don't believe it. A three-tier check kicks in.
+
+**Tier 1, BLOCKING.** If any check fails, the session is rejected: `py_compile` on all .py files, `pytest`, check that files actually exist on disk, check `success_criteria` from the task.
+
+**Tier 2, WARNING.** Results are only logged: `ruff`, `build`, `git diff`.
+
+**Tier 3, ANTI-LOOP.** Protection against infinite cycles. Before the first session we capture a baseline, a snapshot of all pre-existing issues. Old bugs don't count. If the agent can't fix a problem in 5 attempts, the task is marked BLOCKED and the agent moves to the next one. On retry, errors are injected directly into the prompt: "VERIFICATION FAILED, attempt 2/5, BLOCKING: tests 2 failed".
+
+### 3.4 Providers
+
+![Three providers, shared pipeline](6.png)
+
+| Provider | How it works | Requires |
+|----------|-------------|----------|
+| claude-max | CLI subprocess, Stream-JSON, all native tools | Claude Max subscription |
+| claude-api | Anthropic SDK, agentic loop, 6 tools | API key |
+| ollama | Text streaming, no tool calling | Local Ollama |
+
+Claude Max is the primary provider. Claude API and Ollama are **EXPERIMENTAL**. If you want to help, GitHub PRs welcome. I'm one person, can't physically polish everything. Built it for myself, if someone wants to adapt it, I'll gladly accept contributions.
+
+### 3.5 Real-time data flow
+
+![Data flow: agent, dashboard, browser](3.png)
+
+Claude CLI outputs NDJSON, the parser in `loop.py` puts it in `AGENT_LOG_BUFFER`, AJAX `/api/log` picks it up every 2 seconds, browser renders it. Metrics flow in parallel: `rate_limit_event` updates `_session_metrics`, `/api/status` serves them every 3 seconds to 6 cards. Timer ticks via JavaScript every second.
+
+### 3.6 Task lifecycle
+
+![Tasks: creation, priorities, states](5.png)
+
+Three ways to create a task. CLI via `pca task add`. Quick Add form on the dashboard. Or AI Transform, where you type raw text and AI breaks it into structured tasks with priorities and criteria. Priorities change via drag-and-drop. States: PENDING, IN PROGRESS, DONE or BLOCKED.
 
 ---
 
-## 8. 13 bugs we found
+## 4. Case study: epotos-templates
 
-Every bug on this list is a separate debugging story. Here are the top 5 most interesting ones, with the full table below.
+A real case. epotos-templates is a project for a company, document processing + template generation. I needed to add provider switching (from Ollama to DeepSeek). I wrote down my thoughts in free form and launched A1.
 
-**Bug #3: Nested sessions crash.** Claude Code sets `CLAUDECODE=1` in the environment. Our subprocess inherits this. The inner `claude` sees the variable and refuses to start: "cannot launch inside another session". Fix - one line: `env.pop("CLAUDECODE", None)`. But finding the cause took 2 hours because the error didn't appear in stdout.
+### Step 1: Empty page, 5 tasks in 30 seconds
 
-**Bug #9: --verbose is mandatory.** We added `--output-format stream-json` and expected an NDJSON stream. Got silence. Turns out, with the `-p` flag (non-interactive mode), stream-json requires `--verbose`. Without it - nothing. This is documented nowhere.
+I open the dashboard. Tasks page is empty:
 
-**Bug #10: Event format mismatch.** The stream-json documentation mentions `content_block_start` events. In reality, tool_use comes inside `assistant` messages in the `content[]` array. We were looking for `content_block_start` and finding nothing. Rewrote the parser after reading actual output.
+![Empty tasks page](01_tasks_empty.png)
 
-**Bug #12: Case-sensitive filesystem.** The validator did `.lower()` on success_criteria before checking. "Create HealthCheck.py" became "create healthcheck.py". On Linux, the file `HealthCheck.py` wasn't found. Fix - regex-match on the original string.
+Instead of manually formulating tasks, I use AI Transform. I just type raw text: "I want to clone epotos-templates, check how providers are configured, add a block for switching from llama to deepseek..."
 
-**Bug #13: $ in JavaScript inside Template.** Python `string.Template` uses `$variable` for substitution. Our JavaScript code contained `$0.00` to display cost. Template interpreted `$0` as a variable and crashed. Fix - escaping: `$$0.00`.
+![Typing text into AI Transform](02_transform_input.png)
 
-Full table:
+I press Transform:
 
-| # | File | Bug | Fix |
-|---|------|-----|-----|
-| 1 | loop.py | CLI args missing `-p` | Added `-p` flag |
-| 2 | loop.py | No output capture | `stdout=subprocess.PIPE` |
-| 3 | loop.py | Nested session crash | `env.pop("CLAUDECODE")` |
-| 4 | loop.py | No auto-permissions | `--dangerously-skip-permissions` |
-| 5 | loop.py | Infinite execution | `--max-turns 25` |
-| 6 | loop.py | signal in thread | Check `threading.current_thread()` |
-| 7 | loop.py | Agent doesn't know file formats | HOW TO UPDATE in prompt |
-| 8 | dashboard.py | XSS + stop broken | `html.escape()` + `loop.stop()` |
-| 9 | loop.py | stream-json empty | Added `--verbose` |
-| 10 | loop.py | Wrong event format | tool_use in content[] |
-| 11 | loop.py | f-string nested quotes | Extracted to variable |
-| 12 | validator.py | Case-sensitive criteria | Regex on original string |
-| 13 | dashboard.py | `$` in JS Template | Escaped as `$$` |
+![Processing](03_transform_processing.png)
+
+A few seconds later, 5 structured tasks with descriptions and success criteria:
+
+![Preview of 5 tasks](04_transform_preview.png)
+
+I click "Add Selected", tasks created with priorities #1-#5:
+
+![5 tasks created](05_tasks_5_pending.png)
+
+### Step 2: Launch
+
+Dashboard. 0/5 tasks, IDLE. I press Start Agent:
+
+![Dashboard before start](06_dashboard_idle.png)
+
+First task details before work begins:
+
+![Task detail](07_task_detail_empty.png)
+
+Settings, selecting claude-api, entering API key:
+
+![Provider settings](09_settings_claude_api.png)
+
+### Step 3: Agent working
+
+Log lines appear in real time. THINK, BASH, READ:
+
+![Agent working, live log](10_dashboard_running_log.png)
+
+Task Detail: 11 tool calls, log filling up:
+
+![Task detail, agent working](11_task_detail_live.png)
+
+### Step 4: First result
+
+1/5 tasks done. Green checkmark. Agent automatically moved to the next one:
+
+![1 task done](12_dashboard_1_done.png)
+
+Agent analyzing the codebase, reading ollama.ts, ai-client.ts, grepping localhost:11434:
+
+![Codebase analysis](13_dashboard_log_task015.png)
+
+### Step 5: Progress
+
+2/5 tasks done, task_016 in progress:
+
+![2 done, 1 in progress](14_tasks_2done_3pending.png)
+
+![Clean view](15_tasks_2done_clean.png)
+
+Agent designing provider architecture:
+
+![Designing architecture](16_dashboard_log_task016.png)
+
+### Step 6: Message to agent
+
+While the agent works, I type in the "Message to Agent" form, I want it to write documentation too:
+
+![Typing a message](17_dashboard_message_typed.png)
+
+Message queued, the agent will read it next session:
+
+![Message sent](18_dashboard_message_sent.png)
+
+### Step 7: All done
+
+5/5 tasks! Agent still working, processing my documentation request:
+
+![5/5 tasks, agent still working](19_dashboard_5of5_running.png)
+
+Verification passed, agent writing documentation:
+
+![Verification + documentation](20_livelog_verification_docs.png)
+
+Updating CLAUDE.md, creating MEMORY.md:
+
+![Writing documentation](21_livelog_memory_write.png)
+
+### Final
+
+COMPLETED. 5/5 tasks, 12 sessions, 23 files modified:
+
+![COMPLETED](22_dashboard_completed.png)
+
+### Light theme
+
+The dashboard works in both themes:
+
+![Tasks, light](23_tasks_light.png)
+
+![Dashboard, light](24_dashboard_light.png)
+
+![Log, light](25_dashboard_log_light.png)
+
+![Task detail, light](26_task_detail_done_light.png)
 
 ---
 
-## 9. Live Demo
+## 5. Dashboard
 
-Here's what a full work cycle looks like. Say we have an empty project and three tasks.
+3491 lines of pure Python. No React, no Vue, no Flask. Standard `http.server` + `string.Template`. All CSS, JavaScript and HTML in one file.
 
-Step 0: Initialization.
+### 8 pages
+
+| Page | URL | What it does |
+|------|-----|-------------|
+| Dashboard | `/` | 6 metric cards, Start/Stop, live log, Quick Add |
+| Tasks | `/tasks` | Task list + drag-and-drop + bulk add + AI Transform |
+| Task Detail | `/task/{id}` | Full view + logs + metrics + Start/Stop/Delete |
+| Sessions | `/sessions` | Session history with metrics |
+| Activity Log | `/log` | Action timeline |
+| Settings | `/settings` | Provider, API key, parameters |
+| Commits | `/commits` | Git history with type icons |
+| Transform | `/transform` | Raw text, AI, tasks |
+
+### 6 metric cards
+
+| Card | Data |
+|------|------|
+| Tasks | `2/5 done` + progress bar |
+| Session | `#3` + WORKING/IDLE/COMPLETED |
+| Tokens | `12.4K in / 3.2K out` + context progress |
+| Cost | `$0.08` per session |
+| Duration | `48s` (live timer, ticks every second) |
+| Files | `3 modified` |
+
+The log is styled like macOS Terminal. Dark background, monospace font, 8 icon types (read/edit/write/bash/thinking/text/metric/verify). Updates via AJAX every 2 seconds.
+
+Full REST API with 24 endpoints. You can monitor from scripts:
 
 ```bash
-pip install -e .
-mkdir my-project && cd my-project
-pca init .
+curl http://localhost:7331/api/status | python -m json.tool
+curl "http://localhost:7331/api/log?since=0" | python -m json.tool
 ```
-
-This creates the `.a1/` directory with empty `tasks.json` and `checkpoint.json`.
-
-Step 1: Add tasks. Either through CLI (`pca task add "Create health endpoint"`) or through the dashboard. Launch the dashboard:
-
-```bash
-pca ui
-```
-
-The browser opens at `http://localhost:7331`. Fill in the Quick Add form - title and description. Add 3 tasks.
-
-Step 2: Start the agent.
-
-```bash
-pca start
-```
-
-Or click "Start Agent" on the dashboard. The agent takes the task with the lowest priority, builds the prompt, launches Claude.
-
-Step 3: Watch. In the dashboard's terminal log, lines appear in real time - READ (agent reading files), WRITE (creating), BASH (running commands), THINK (reasoning). Cards update: tokens growing, timer ticking.
-
-Step 4: Verification. Agent says "COMPLETED". The 3-tier check runs. If everything's fine - the task is marked done, agent takes the next one. If not - errors go into the next session's prompt.
-
-Step 5: Done. All tasks completed. Dashboard shows "Completed" with a green badge. Sessions page shows all sessions with metrics.
 
 ---
 
-## 10. E2E Testing
+## 6. Conclusions and what's next
 
-We ran 6 E2E tests - all passed.
+PocketCoder-A1 works. 5 tasks on a real project in 13 minutes, autonomously. With verification, with live logging, with the ability to send the agent a message while it's working.
 
-| # | Test | Tasks | Checks | Time |
-|---|------|-------|--------|------|
-| 1 | Basic cycle | 3/3 | 10 screenshots | 90s |
-| 2 | Real project (epotos) | 3/3 | 36 screenshots | 150s |
-| 3 | Stream-JSON verify | 1/1 | 23 log entries | 60s |
-| 4 | Verification system | 4/4 | 23 pytest tests | 48s |
-| 5 | Dashboard UX | - | 77/77 checks | - |
-| 6 | Full cycle (web->agent->done) | 3/3 | 22/22 checks | 165s |
+Autonomous sessions work: press Start, leave, come back to results. Verification actually catches the lying agent on three levels: blocking, warning, anti-loop. Dashboard shows everything in real time. Queue Message lets you write to the agent while it works.
 
-Test #6 is the most comprehensive. Adding tasks through Playwright web forms, starting the agent, parallel monitoring (screenshots every 15 seconds + API checks + file reads), final verification at 5 levels. More about the testing methodology in a separate article.
+In progress: auto-checkpoint at 70% context, git integration (branches + atomic commits), PyPI + uv release.
+
+We're in the middle of a vibe-coding boom right now. It would be cool to have more tools that optimize your workflow. Not replacing humans, extending capabilities. You sleep, your subscription works.
 
 ---
 
-## 11. Conclusions and what's next
+**PocketCoder-A1** is about open source.
 
-PocketCoder-A1 is 5300+ lines of Python, 13 modules, 7 dashboard pages, 17 API endpoints, 3 providers, 6 E2E tests. All without frameworks. Installation is `pip install -e .` and one command.
-
-What works well: autonomous sessions (press Start, leave, come back to results), verification (actually catches the lying agent), dashboard (see everything in real time).
-
-What's still in progress: automatic checkpoint at 70% context (so the agent doesn't lose work when context overflows), git integration (automatic branches and atomic commits), more providers (OpenAI-compatible endpoints).
+**GitHub:** [github.com/Chashchin-Dmitry/pocketcoder-a1](https://github.com/Chashchin-Dmitry/pocketcoder-a1)
 
 ---
 
-**GitHub**: [github.com/Chashchin-Dmitry/pocketcoder-a1](https://github.com/Chashchin-Dmitry/pocketcoder-a1)
+I'd appreciate a like and a subscribe to the channel :)
+[https://t.me/notes_from_cto](https://t.me/notes_from_cto)
 
-**Installation**:
-```bash
-pip install -e .
-pca init my-project
-pca ui
-```
-
-If you've read this far - thank you. I'd appreciate a star on GitHub and feedback in Issues.
+Our website: [https://bvmax.ru/ai](https://bvmax.ru/ai)
