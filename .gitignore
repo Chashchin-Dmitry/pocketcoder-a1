@@ -23,11 +23,16 @@ ENV/
 # Sandbox / test projects
 sandbox/
 
-# Images / screenshots
+# Images / screenshots (general)
 *.JPG
 *.jpg
 *.png
 *.PNG
+
+# Allow article images
+!articles/**/*.png
+!articles/**/*.jpg
+!docs/tutorial/screenshots/**/*.png
 
 # A1 data (keep structure, ignore content)
 .a1/sessions/*

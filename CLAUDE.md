@@ -4,12 +4,31 @@
 
 ```
 1. Read CLAUDE.md (this file) — project overview + module map
-2. Read CURRENT_STAGE.md — cause-effect chains, architecture, full manual
-3. Read .a1/checkpoint.json — current state
-4. Read .a1/tasks.json — task list
-5. Read TODO.md — phases roadmap
-6. Continue work from checkpoint
+2. Read CURRENT_STAGE.md — architecture, cause-effect chains, article plan
+3. Read TODO.md — phases roadmap
+4. Continue work from checkpoint
 ```
+
+## FILE INDEX
+
+| File | What |
+|------|------|
+| `CURRENT_STAGE.md` | Architecture, cause-effect chains, full manual, article plan (lines 880-1023) |
+| `TODO.md` | Phase roadmap with checkboxes |
+| `BACKLOG.md` | Raw user ideas (scopes 1-4) |
+| `docs/DOCUMENTATION.md` | Full technical reference (52K): modules, API, data model, providers, stream-json |
+| `docs/tutorial/WORKFLOW.md` | E2E testing cheatsheet |
+| `docs/tutorial/examples/e2e_test.py` | Example E2E test script |
+| `docs/tutorial/screenshots/` | 16 tutorial screenshots |
+| `articles/01_pocketcoder/SCREENSHOTS_MAP.md` | Screenshot index (26 pcs), article plan, structure, flow |
+| `articles/01_pocketcoder/article_ru.md` | Article RU (rewriting) |
+| `articles/01_pocketcoder/article_en.md` | Article EN (rewriting) |
+| `articles/01_pocketcoder/screenshots/` | 26 screenshots: full flow empty to completed, dark+light |
+| `articles/01_pocketcoder/diagrams/` | 6 mermaid diagrams (01-06), base theme, elk layout |
+
+### Style reference
+- Habr article (PocketCoder v1): https://habr.com/ru/articles/991022/
+- Style: conversational "we", technical depth, code blocks, tables, screenshots, honest about bugs
 
 ---
 

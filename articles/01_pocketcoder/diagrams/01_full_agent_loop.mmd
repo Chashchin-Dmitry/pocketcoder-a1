@@ -1,93 +1,86 @@
-%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
+---
+config:
+  theme: base
+  layout: elk
+---
 flowchart TD
-    %% === ENTRY POINT ===
-    Start(["pca start"]) --> Mode{Режим запуска?}
-    Mode -->|"pca start\n(все задачи)"| AllTasks["Режим: ВСЕ ЗАДАЧИ\nget_next_task()\nсортировка по priority ASC"]
-    Mode -->|"pca start --task task_001\n(одна задача)"| SingleTask["Режим: ОДНА ЗАДАЧА\nsingle_task_id = task_001"]
+    Start(["pca start"]) --> Mode{"Mode?"}
+    Mode -->|"all tasks"| AllTasks["All tasks<br/>get_next_task()<br/>by priority"]
+    Mode -->|"--task task_001"| SingleTask["Single task"]
 
     AllTasks --> Baseline
     SingleTask --> Baseline
 
-    %% === BASELINE ===
-    Baseline["1. Захват baseline\nvalidator.run_all() ДО работы\n(старые баги не считаются)"]
+    Baseline["Capture baseline<br/>validator.run_all() BEFORE work<br/>pre-existing bugs excluded"]
     Baseline --> SessionStart
 
-    %% === SESSION LOOP ===
-    SessionStart["2. Начало сессии\ncheckpoint.start_session()\nsession++ / status=WORKING"]
+    SessionStart["Start session<br/>session++ / status=WORKING"]
     SessionStart --> BuildPrompt
 
-    BuildPrompt["3. Сборка промпта\ncheckpoint + tasks + queue.json\n+ ошибки верификации (если retry)"]
+    BuildPrompt["Build prompt<br/>checkpoint + tasks +<br/>queue + verification errors"]
     BuildPrompt --> QueueCheck
 
-    QueueCheck{"Есть сообщения\nв queue.json?"}
-    QueueCheck -->|"Да"| InjectQueue["Добавить в промпт:\nUSER MESSAGES (from queue)\n- текст сообщения"]
-    QueueCheck -->|"Нет"| Provider
+    QueueCheck{"Messages in<br/>queue.json?"}
+    QueueCheck -->|"Yes"| InjectQueue["Inject user messages<br/>into prompt"]
+    QueueCheck -->|"No"| Provider
     InjectQueue --> Provider
 
-    %% === PROVIDERS ===
-    Provider{"Провайдер?"}
-    Provider -->|"claude-max\n(подписка €90/мес)"| ClaudeMax["Claude CLI subprocess\nenv.pop('CLAUDECODE')\n6 флагов (см. диаграмму 2)"]
-    Provider -->|"claude-api\n[EXPERIMENTAL]"| ClaudeAPI["Anthropic SDK\nclient.messages.stream()\n6 инструментов: Read/Write/\nEdit/Bash/Glob/Grep"]
-    Provider -->|"ollama\n[EXPERIMENTAL]"| OllamaP["Ollama Client\nclient.chat(stream=True)\nтолько текст, без tool_use"]
+    Provider{"Provider?"}
+    Provider -->|"claude-max"| ClaudeMax["Claude CLI subprocess<br/>Stream-JSON, all tools"]
+    Provider -->|"claude-api"| ClaudeAPI["Anthropic SDK<br/>Agentic loop, 6 tools"]
+    Provider -->|"ollama"| OllamaP["Ollama Client<br/>Text only, no tool calling"]
 
     ClaudeMax --> StreamParse
     ClaudeAPI --> StreamParse
     OllamaP --> StreamParse
 
-    %% === STREAM PARSING ===
-    StreamParse["4. Real-time парсинг\nNDJSON строка за строкой\n(см. диаграмму 2)"]
+    StreamParse["Real-time parsing<br/>NDJSON line by line"]
 
-    StreamParse --> ContextCheck{"Контекст >= 70%\n(rate_limit_event)?"}
-    ContextCheck -->|"Да"| AutoCheckpoint["AUTO-CHECKPOINT\nСохранить состояние\nТерминировать сессию\nstatus = WORKING"]
+    StreamParse --> ContextCheck{"Context >= 70%?"}
+    ContextCheck -->|"Yes"| AutoCheckpoint["Auto-checkpoint<br/>save state<br/>terminate session"]
     AutoCheckpoint --> SessionDelay
-    ContextCheck -->|"Нет"| SessionEnd
+    ContextCheck -->|"No"| SessionEnd
 
-    SessionEnd["5. Сессия завершена\nСохранить метрики + session_history\nfiles_modified обновлены"]
+    SessionEnd["Session finished<br/>metrics saved"]
 
-    %% === VERIFICATION ===
-    SessionEnd --> Verify["6. ВЕРИФИКАЦИЯ\n'Не верим на слово'"]
+    SessionEnd --> Verify["Verification"]
 
-    Verify --> T1["УРОВЕНЬ 1 — БЛОКИРУЮЩИЙ\npy_compile (синтаксис)\npytest (тесты)\nфайлы на диске?\nуспех-критерии?"]
+    Verify --> T1{"Blocking checks<br/>passed?"}
 
-    T1 --> T1Result{Блокирующие\nпроблемы?}
-
-    T1Result -->|"Нет"| T2["УРОВЕНЬ 2 — ПРЕДУПРЕЖДЕНИЕ\nruff (линтер)\nbuild (сборка)\ngit diff + status"]
+    T1 -->|"Yes"| T2["Warnings<br/>ruff, build, git diff"]
     T2 --> Completed
 
-    T1Result -->|"Да"| BaselineCheck{"Это НОВАЯ проблема?\n(сравнить с baseline)"}
-    BaselineCheck -->|"Была до нас"| T2
-    BaselineCheck -->|"Новая"| RetryCheck{"retry_count < 5\n(MAX_VERIFY_RETRIES)?"}
+    T1 -->|"No"| BaselineCheck{"New problem?<br/>compare with baseline"}
+    BaselineCheck -->|"Old bug"| T2
+    BaselineCheck -->|"New bug"| RetryCheck{"retry < 5?"}
 
-    RetryCheck -->|"Да"| RetrySession["Retry: status = WORKING\nВставить ошибки в промпт:\n'VERIFICATION FAILED\nattempt N/5\nBLOCKING: ...\nFIX before marking done'"]
+    RetryCheck -->|"Yes"| RetrySession["Retry: inject errors<br/>into next session prompt"]
     RetrySession --> SessionDelay
 
-    RetryCheck -->|"Нет (>= 5)"| BlockTask["ЗАДАЧА BLOCKED\ntasks.mark_blocked()\nпричина: 'syntax: error...'"]
+    RetryCheck -->|"No"| BlockTask["Task BLOCKED"]
 
-    %% === BLOCKED BRANCHING ===
-    BlockTask --> BlockMode{Режим?}
-    BlockMode -->|"Одна задача\n(--task)"| StopBlocked(["СТОП\ntask_001: BLOCKED"])
-    BlockMode -->|"Все задачи"| NextTask{"Есть ещё\npending задачи?"}
-    NextTask -->|"Да"| PickNext["get_next_task()\nперейти к следующей"]
+    BlockTask --> BlockMode{"Mode?"}
+    BlockMode -->|"Single task"| StopBlocked(["STOP: BLOCKED"])
+    BlockMode -->|"All tasks"| NextTask{"More pending?"}
+    NextTask -->|"Yes"| PickNext["Next task"]
     PickNext --> SessionStart
-    NextTask -->|"Нет"| StopNoTasks(["СТОП\nнет задач для работы"])
+    NextTask -->|"No"| StopNoTasks(["STOP: no tasks"])
 
-    %% === COMPLETION ===
-    Completed{"checkpoint.status\n== COMPLETED?"}
-    Completed -->|"Нет\n(есть ещё задачи)"| SessionDelay
-    Completed -->|"Да\n(всё сделано)"| AllDone(["ВСЁ ВЫПОЛНЕНО + ВЕРИФИЦИРОВАНО\nTasks: 5/5 done\nSessions: N"])
+    Completed{"All tasks done?"}
+    Completed -->|"No"| SessionDelay
+    Completed -->|"Yes"| AllDone(["ALL DONE"])
 
-    SessionDelay["Пауза session_delay сек\n(по умолчанию 5 сек)"]
+    SessionDelay["Delay 5 sec"]
     SessionDelay --> SessionStart
 
-    %% === STYLES ===
-    style Start fill:#6366f1,color:#fff,stroke:#4f46e5
-    style AllDone fill:#10b981,color:#fff,stroke:#059669
-    style StopBlocked fill:#ef4444,color:#fff,stroke:#dc2626
-    style StopNoTasks fill:#f59e0b,color:#000,stroke:#d97706
-    style Verify fill:#f59e0b,color:#000,stroke:#d97706
-    style BlockTask fill:#ef4444,color:#fff,stroke:#dc2626
-    style AutoCheckpoint fill:#8b5cf6,color:#fff,stroke:#7c3aed
-    style Baseline fill:#3b82f6,color:#fff,stroke:#2563eb
-    style ClaudeMax fill:#6366f1,color:#fff,stroke:#4f46e5
-    style ClaudeAPI fill:#f97316,color:#fff,stroke:#ea580c
-    style OllamaP fill:#10b981,color:#fff,stroke:#059669
+    style Start fill:#6366f1,color:#fff
+    style AllDone fill:#10b981,color:#fff
+    style StopBlocked fill:#ef4444,color:#fff
+    style StopNoTasks fill:#f59e0b,color:#000
+    style Verify fill:#f59e0b,color:#000
+    style BlockTask fill:#ef4444,color:#fff
+    style AutoCheckpoint fill:#8b5cf6,color:#fff
+    style Baseline fill:#3b82f6,color:#fff
+    style ClaudeMax fill:#6366f1,color:#fff
+    style ClaudeAPI fill:#f97316,color:#fff
+    style OllamaP fill:#10b981,color:#fff

@@ -1,65 +1,61 @@
-%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
+---
+config:
+  theme: base
+  layout: elk
+---
 flowchart LR
-    %% === AGENT SIDE ===
-    subgraph Agent["Агент (loop.py)"]
+    subgraph Agent["Agent (loop.py)"]
         direction TB
-        Claude["Claude CLI\nsubprocess"]
-        Claude --> StreamJSON["Stream-JSON\nNDJSON строки"]
+        Claude["Claude CLI<br/>subprocess"]
+        Claude --> StreamJSON["Stream-JSON<br/>NDJSON lines"]
         StreamJSON --> Parse["_parse_stream_event()"]
 
-        Parse --> ToolUse["tool_use:\nRead/Edit/Write/Bash"]
-        Parse --> TextBlock["text:\nответ агента"]
-        Parse --> RateLimit["rate_limit_event:\ntokens in/out/cache"]
-        Parse --> ResultBlock["result:\nфинальный ответ"]
+        Parse --> ToolUse["tool_use:<br/>Read / Edit / Write / Bash"]
+        Parse --> TextBlock["text:<br/>agent response"]
+        Parse --> RateLimit["rate_limit_event:<br/>tokens in / out / cache"]
+        Parse --> ResultBlock["result:<br/>final answer"]
     end
 
-    %% === BRIDGE ===
-    subgraph Bridge["Мост: Agent → Dashboard"]
+    subgraph Bridge["Agent -> Dashboard"]
         direction TB
-        ToolUse --> LogCB["_log_callback(\n  text, type\n)"]
+        ToolUse --> LogCB["_log_callback(text, type)"]
         TextBlock --> LogCB
-        RateLimit --> MetricsUpdate["_session_metrics\ntokens_in += N\ntokens_out += N\ntools_used += 1"]
+        RateLimit --> MetricsUpdate["_session_metrics<br/>tokens_in += N<br/>tokens_out += N<br/>tools_used += 1"]
         ResultBlock --> LogCB
 
-        LogCB --> Buffer["AGENT_LOG_BUFFER\n(глобальный list)\nappend({text, type, time})"]
-        MetricsUpdate --> SessionMetrics["get_session_metrics()\n→ dict: tokens, cost,\nduration, context%"]
+        LogCB --> Buffer["AGENT_LOG_BUFFER<br/>append(text, type, time)"]
+        MetricsUpdate --> SessionMetrics["get_session_metrics()<br/>tokens, cost,<br/>duration, context%"]
     end
 
-    %% === SERVER ===
-    subgraph Server["HTTP-сервер (dashboard.py)"]
+    subgraph Server["HTTP server (dashboard.py)"]
         direction TB
-        Buffer --> APILog["/api/log?since=N\nВернуть записи с индекса N\nJSON: entries[]"]
-        SessionMetrics --> APIStatus["/api/status\ncheckpoint + tasks +\nmetrics + running"]
+        Buffer --> APILog["/api/log?since=N<br/>entries from index N"]
+        SessionMetrics --> APIStatus["/api/status<br/>checkpoint + tasks + metrics"]
 
-        QueueForm["POST /queue-message\n→ queue.json"] --> QueueFile[".a1/queue.json\n{messages: [{text, read}]}"]
-        QueueFile --> NextPrompt["Следующая сессия:\nbuild_prompt()\nчитает queue.json"]
+        QueueForm["POST /queue-message"] --> QueueFile[".a1/queue.json"]
+        QueueFile --> NextPrompt["build_prompt()<br/>reads queue.json"]
     end
 
-    %% === BROWSER ===
-    subgraph Browser["Браузер (JavaScript)"]
+    subgraph Browser["Browser"]
         direction TB
-        APILog --> JSLog["updateLog()\nкаждые 2 сек\nfetch → DOM"]
-        APIStatus --> JSStatus["updateStatus()\nкаждые 3 сек\nfetch → карточки"]
+        APILog --> JSLog["updateLog()<br/>every 2 sec"]
+        APIStatus --> JSStatus["updateStatus()<br/>every 3 sec"]
 
-        JSLog --> LogPanel["Лог-панель\nиконки + цвета + текст\n8 типов событий"]
+        JSLog --> LogPanel["Log panel<br/>icons + colors + text<br/>8 event types"]
 
-        JSStatus --> Cards["6 карточек метрик"]
-        Cards --> C1["Tasks\n2/5 done + прогресс"]
-        Cards --> C2["Session\n#3 + WORKING бейдж"]
-        Cards --> C3["Tokens\n12.4K in / 3.2K out"]
-        Cards --> C4["Cost\n$0.08 за сессию"]
-        Cards --> C5["Duration\n48s (live timer)"]
-        Cards --> C6["Files\n3 modified"]
+        JSStatus --> Cards["6 metric cards"]
+        Cards --> C1["Tasks<br/>2/5 done"]
+        Cards --> C2["Session<br/>#3 WORKING"]
+        Cards --> C3["Tokens<br/>12.4K / 3.2K"]
+        Cards --> C4["Cost<br/>$0.08"]
+        Cards --> C5["Duration<br/>48s"]
+        Cards --> C6["Files<br/>3 modified"]
 
-        Timer["tickTimer()\nкаждую 1 сек\n(только когда running)"] --> C5
+        Timer["tickTimer()<br/>every second"] --> C5
     end
 
-    %% === STYLES ===
-    style Agent fill:#1e293b,color:#e2e8f0,stroke:#6366f1
-    style Bridge fill:#1e293b,color:#e2e8f0,stroke:#f59e0b
-    style Server fill:#1e293b,color:#e2e8f0,stroke:#10b981
-    style Browser fill:#1e293b,color:#e2e8f0,stroke:#3b82f6
-    style Buffer fill:#f59e0b,color:#000,stroke:#d97706
-    style SessionMetrics fill:#f59e0b,color:#000,stroke:#d97706
-    style Cards fill:#6366f1,color:#fff,stroke:#4f46e5
-    style LogPanel fill:#10b981,color:#fff,stroke:#059669
+    style Claude fill:#6366f1,color:#fff
+    style Buffer fill:#f59e0b,color:#000
+    style SessionMetrics fill:#f59e0b,color:#000
+    style Cards fill:#6366f1,color:#fff
+    style LogPanel fill:#10b981,color:#fff

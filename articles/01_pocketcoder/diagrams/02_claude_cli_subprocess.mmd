@@ -1,62 +1,62 @@
-%%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
+---
+config:
+  theme: base
+  layout: elk
+---
 flowchart TD
-    %% === PYTHON SIDE ===
-    subgraph Python["Python (loop.py)"]
-        EnvClean["env = os.environ.copy()\nenv.pop('CLAUDECODE', None)"]
-        EnvWhy["Зачем: Claude Code ставит CLAUDECODE=1\nВложенный вызов claude падает:\n'cannot launch inside another session'\nУдаляем — и subprocess работает"]
+    subgraph Python["loop.py"]
+        EnvClean["env = os.environ.copy()<br/>env.pop('CLAUDECODE', None)"]
+        EnvWhy["CLAUDECODE=1 in environment<br/>nested claude crashes<br/>remove the variable"]
 
         EnvClean --> Popen
 
-        Popen["subprocess.Popen(\n  ['claude', '-p', prompt, ...],\n  cwd=project_dir,\n  env=env,\n  stdout=PIPE,\n  stderr=STDOUT,\n  text=True, bufsize=1\n)"]
+        Popen["subprocess.Popen(<br/>['claude', '-p', prompt, ...],<br/>cwd=project_dir,<br/>stdout=PIPE, text=True)"]
     end
 
-    subgraph Flags["6 обязательных флагов"]
-        F1["-p prompt\nНеинтерактивный режим"]
-        F2["--dangerously-skip-permissions\nАвтоподтверждение всех tool_use\n(иначе каждый Read/Edit ждёт ввода)"]
-        F3["--no-session-persistence\nНе засорять историю сессий Claude"]
-        F4["--max-turns 25\nЛимит итераций\n(защита от бесконечной работы)"]
-        F5["--verbose\nОБЯЗАТЕЛЬНО с stream-json + -p\n(без него: ошибка парсинга)"]
-        F6["--output-format stream-json\nNDJSON: одна строка = одно событие\n(вместо буферизации всего stdout)"]
+    subgraph Flags["6 required flags"]
+        F1["-p prompt<br/>non-interactive mode"]
+        F2["--dangerously-skip-permissions<br/>auto-approve tool_use"]
+        F3["--no-session-persistence<br/>don't pollute history"]
+        F4["--max-turns 25<br/>iteration limit"]
+        F5["--verbose<br/>required with stream-json + -p"]
+        F6["--output-format stream-json<br/>NDJSON stream"]
     end
 
     Popen --> ReadLoop
 
-    %% === STREAM PARSING ===
-    subgraph Stream["Real-time парсинг потока"]
-        ReadLoop["while True:\n  line = proc.stdout.readline()\n  if not line and proc.poll() is not None: break"]
+    subgraph Stream["Real-time stream parsing"]
+        ReadLoop["while True:<br/>line = proc.stdout.readline()"]
         ReadLoop --> ParseJSON["event = json.loads(line)"]
-        ParseJSON --> EventType{"event['type'] = ?"}
+        ParseJSON --> EventType{"event type?"}
 
-        EventType -->|"system"| Skip1["SKIP\n(инициализация)"]
-        EventType -->|"user"| Skip2["SKIP\n(tool_result от Claude)"]
+        EventType -->|"system"| Skip1["SKIP"]
+        EventType -->|"user"| Skip2["SKIP"]
 
-        EventType -->|"assistant"| ParseContent["Разбор content[] блоков"]
-        ParseContent --> BlockType{"block['type'] = ?"}
+        EventType -->|"assistant"| ParseContent["Parse content[]"]
+        ParseContent --> BlockType{"block type?"}
 
-        BlockType -->|"tool_use"| ToolClassify["Классификация инструмента\ntools_used += 1"]
-        BlockType -->|"text"| TextOut["Текстовый вывод\n(обрезка до 150 символов)"]
-        BlockType -->|"thinking"| ThinkOut["Extended thinking\n(обрезка до 100 символов)"]
+        BlockType -->|"tool_use"| ToolClassify["Classify tool<br/>tools_used += 1"]
+        BlockType -->|"text"| TextOut["Text output"]
+        BlockType -->|"thinking"| ThinkOut["Extended thinking"]
 
-        EventType -->|"rate_limit_event"| Metrics["Обновление метрик:\ntokens_in = usage.input_tokens\ntokens_out = usage.output_tokens\ncache_read / cache_creation\ncontext_percent = in / 200K"]
+        EventType -->|"rate_limit_event"| Metrics["Update metrics:<br/>tokens_in, tokens_out<br/>cache_read, context%"]
 
-        EventType -->|"result"| Result["Финальный ответ агента\nsession_result = text[:500]"]
+        EventType -->|"result"| Result["Final answer"]
     end
 
-    %% === TOOL CLASSIFICATION ===
-    subgraph ToolMap["Классификация tool_use → 8 типов иконок"]
-        ToolClassify --> TM1["Read / Glob / Grep → 'read'\nсиний, иконка глаза"]
-        ToolClassify --> TM2["Edit → 'edit'\nоранжевый, иконка карандаша"]
-        ToolClassify --> TM3["Write → 'write'\nзелёный, иконка файла"]
-        ToolClassify --> TM4["Bash → 'bash'\nфиолетовый, иконка терминала"]
-        ThinkOut --> TM5["thinking\nжёлтый, иконка лампочки"]
-        TextOut --> TM6["text\nсерый, иконка чата"]
-        Metrics --> TM7["metric\nиндиго, иконка спидометра"]
-        Result --> TM8["verify (при верификации)\nзелёный, иконка щита"]
+    subgraph ToolMap["Classification: 8 types"]
+        ToolClassify --> TM1["Read / Glob / Grep<br/>read, blue"]
+        ToolClassify --> TM2["Edit<br/>edit, orange"]
+        ToolClassify --> TM3["Write<br/>write, green"]
+        ToolClassify --> TM4["Bash<br/>bash, purple"]
+        ThinkOut --> TM5["thinking, yellow"]
+        TextOut --> TM6["text, gray"]
+        Metrics --> TM7["metric, indigo"]
+        Result --> TM8["verify, green"]
     end
 
-    %% === CALLBACK ===
-    subgraph Callback["Отправка в дашборд"]
-        TM1 --> LogCB["_log_callback(display_text, event_type)"]
+    subgraph Callback["Send to dashboard"]
+        TM1 --> LogCB["_log_callback(text, type)"]
         TM2 --> LogCB
         TM3 --> LogCB
         TM4 --> LogCB
@@ -64,16 +64,12 @@ flowchart TD
         TM6 --> LogCB
         TM7 --> LogCB
         TM8 --> LogCB
-        LogCB --> Buffer["AGENT_LOG_BUFFER\n(глобальный список в dashboard.py)"]
-        Buffer --> AJAX["AJAX /api/log?since=N\nкаждые 2 секунды"]
-        AJAX --> DOM["Браузер: иконка + цвет + текст"]
+        LogCB --> Buffer["AGENT_LOG_BUFFER"]
+        Buffer --> AJAX["/api/log?since=N<br/>every 2 seconds"]
+        AJAX --> DOM["Browser: icon + color + text"]
     end
 
-    %% === STYLES ===
-    style Python fill:#1e293b,color:#e2e8f0,stroke:#475569
-    style Flags fill:#312e81,color:#c7d2fe,stroke:#4338ca
-    style Stream fill:#1e293b,color:#e2e8f0,stroke:#475569
-    style ToolMap fill:#1e293b,color:#e2e8f0,stroke:#475569
-    style Callback fill:#064e3b,color:#a7f3d0,stroke:#059669
-    style EnvWhy fill:#7f1d1d,color:#fecaca,stroke:#dc2626
-    style Popen fill:#6366f1,color:#fff,stroke:#4f46e5
+    style Popen fill:#6366f1,color:#fff
+    style EnvWhy fill:#ef4444,color:#fff
+    style Buffer fill:#f59e0b,color:#000
+    style DOM fill:#10b981,color:#fff
