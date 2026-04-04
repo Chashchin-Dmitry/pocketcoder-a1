@@ -23,6 +23,8 @@ npm i -g @anthropic-ai/claude-code
 
 **Requirements:** Python 3.10+, Node.js 18+
 
+Full step-by-step guide: **[GETTING_STARTED.md](GETTING_STARTED.md)**
+
 ---
 
 ## Quick Start
