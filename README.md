@@ -2,180 +2,116 @@
 
 **Autonomous Coding Agent with Web Dashboard**
 
-A1 works on your tasks autonomously — you add tasks, start the agent, watch progress in the dashboard.
+Write tasks before bed, press Start, wake up to results. A1 works autonomously — runs code, verifies output, takes the next task. Real-time dashboard shows everything.
+
+7086 lines of Python. Zero frameworks. 3 providers. Verification that catches a lying agent.
+
+![Dashboard](docs/images/dashboard.png)
 
 ---
 
-## Quick Start (5 steps)
+## Install
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/Chashchin-Dmitry/pocketcoder-a1.git
-cd pocketcoder-a1
+pip install pocketcoder-a1
+```
+
+Also need [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code):
+```bash
+npm i -g @anthropic-ai/claude-code
+```
+
+**Requirements:** Python 3.10+, Node.js 18+
+
+---
+
+## Quick Start
+
+```bash
+# 1. Create venv
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
 
-# 2. Install browser for E2E tests (optional)
-pip install playwright requests
-playwright install chromium
+# 2. Install
+pip install pocketcoder-a1
 
-# 3. Initialize in any project
-pca init /path/to/your-project
+# 3. Init on your project
+cd /path/to/your-project
+pca init .
 
 # 4. Add tasks
-pca task add "Add login page" -d /path/to/your-project
-pca task add "Write unit tests" -d /path/to/your-project
+pca task add "Add /api/health endpoint"
+pca task add "Write unit tests for auth"
 
 # 5. Launch dashboard
-pca ui -d /path/to/your-project
+pca ui
 # Opens http://localhost:7331
 ```
 
-**Requirements:** Python 3.10+, [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed (`npm i -g @anthropic-ai/claude-code`)
+---
+
+## Dashboard
+
+8 pages, 24 API endpoints, everything in one Python file.
+
+### Live Agent Log
+
+Watch what Claude does in real-time. Every file read, edit, bash command — with colored icons.
+
+![Live Log](docs/images/live_log.png)
+
+### Tasks with Drag-and-Drop
+
+Cards with priorities, statuses, success criteria. Drag to reorder.
+
+![Tasks](docs/images/tasks.png)
+
+### AI Transform
+
+Paste messy notes in free form. AI breaks them into structured tasks with descriptions and criteria.
+
+![Transform](docs/images/transform.png)
+
+### Completed
+
+5/5 tasks done. 12 sessions. 23 files modified. All verified.
+
+![Completed](docs/images/completed.png)
+
+### Light Theme
+
+![Light](docs/images/dashboard_light.png)
 
 ---
 
-## Web Dashboard
-
-Open `http://localhost:7331` after running `pca ui`. 7 pages:
-
-| Page | What it does |
-|------|-------------|
-| **Dashboard** | Status cards, task list, Quick Add form, Start/Stop agent, Live Log |
-| **Tasks** | All tasks with priority badges (#1 #2 #3), drag-and-drop reorder, Add Task + Add Thought forms |
-| **Sessions** | Current and previous session details |
-| **Activity Log** | Timeline of all actions (started, stopped, task added) |
-| **Commits** | Git commit history |
-| **Transform** | Paste raw text -> AI breaks it into structured tasks |
-| **Settings** | Theme toggle (dark/light), provider info |
-
-### Key features:
-- **Live Agent Log** — see what Claude is doing in real-time (action icons + raw log)
-- **Queue Message** — send instructions to running agent (appears when agent is Running)
-- **Drag-and-Drop** — reorder task priorities on Tasks page
-- **Dark Theme** — click moon icon top-right
-- **Transform** — paste messy notes, AI creates structured tasks with checkboxes
-
----
-
-## How to Test (step by step)
-
-### Option A: Use the dashboard (recommended)
-
-```bash
-source .venv/bin/activate
-
-# Start dashboard on any project
-pca ui -d /path/to/your-project
-```
-
-Then in browser at `http://localhost:7331`:
-
-1. **Add tasks** — Quick Add form on Dashboard, or Tasks page
-2. **Start Agent** — green button, watch status change to "Running"
-3. **Watch Live Log** — "Agent Live Log" panel shows what Claude does
-4. **Send message** — "Message to Agent" form appears when running
-5. **Stop** — red "Stop Agent" button
-6. **Transform** — go to Transform page, paste text, click "AI Transform"
-7. **Check results** — Tasks page shows green checkmarks for completed tasks
-
-### Option B: CLI only
-
-```bash
-source .venv/bin/activate
-
-pca init ./my-project
-pca task add "Create hello.py with greet function" -d ./my-project
-pca start -d ./my-project          # Runs agent in terminal
-pca status -d ./my-project         # Check progress
-pca tasks -d ./my-project          # See task list
-```
-
-### Option C: Run E2E tests
-
-```bash
-source .venv/bin/activate
-
-# Start dashboard in background
-pca ui -d ./my-project --no-browser &
-
-# Run vision-based tests (7 scenarios)
-pca test -d ./my-project --no-vision
-
-# Reports saved to .a1/test-reports/
-```
-
----
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `pca init <dir>` | Initialize .a1/ in project |
-| `pca task add "..."` | Add task with optional description |
-| `pca think "..."` | Add raw thought/idea |
-| `pca tasks` | Show all tasks |
-| `pca start` | Start autonomous agent (CLI mode) |
-| `pca status` | Show current status |
-| `pca validate` | Run validation (syntax, tests, lint) |
-| `pca ui` | Launch web dashboard on :7331 |
-| `pca test` | Run E2E vision tests |
-| `pca log` | Show session history |
-
-Add `-d /path/to/project` to any command to specify project directory.
-
----
-
-## Dashboard API (17 endpoints)
-
-| Method | Endpoint | What it does |
-|--------|----------|-------------|
-| GET | `/` | Dashboard page |
-| GET | `/tasks` | Tasks page |
-| GET | `/sessions` | Sessions page |
-| GET | `/log` | Activity log page |
-| GET | `/commits` | Git commits page |
-| GET | `/transform` | Transform page |
-| GET | `/settings` | Settings page |
-| GET | `/api/status` | JSON: checkpoint + tasks + progress + running |
-| GET | `/api/log?since=N` | JSON: agent log entries since index N |
-| POST | `/add-task` | Add task (form: task, description) |
-| POST | `/add-thought` | Add thought (form: thought) |
-| POST | `/start` | Start agent |
-| POST | `/stop` | Stop agent |
-| POST | `/queue-message` | Message to agent (form: message) |
-| POST | `/api/reorder` | Reorder tasks (JSON: {order: [ids]}) |
-| POST | `/transform` | AI transform text to tasks (form: text) |
-| POST | `/transform-confirm` | Confirm transformed tasks (JSON: {tasks}) |
-
----
-
-## Project Structure
+## How It Works
 
 ```
-pocketcoder-a1/
-├── a1/                      # Main code
-│   ├── checkpoint.py        # State between sessions
-│   ├── tasks.py             # Task management (priorities, reorder)
-│   ├── validator.py         # Validation (syntax, tests, lint)
-│   ├── loop.py              # Agent session loop (Claude CLI subprocess)
-│   ├── dashboard.py         # Web UI (17 endpoints, inline HTML/CSS/JS)
-│   ├── cli.py               # CLI commands (pca)
-│   └── tester/              # Vision-based QA agent
-├── .a1/                     # Data (created on pca init)
-│   ├── checkpoint.json      # Current state
-│   ├── tasks.json           # Task list with priorities
-│   ├── queue.json           # Message queue for agent
-│   ├── sessions/            # Session logs
-│   └── checkpoints/         # Checkpoint archive
-├── sandbox/                 # Test projects
-│   ├── test-e2e/            # E2E test (3/3 tasks passed)
-│   └── epotos-templates/    # Real project test (3/3 tasks passed)
-├── CLAUDE.md                # Agent instructions
-├── CURRENT_STAGE.md         # Status with cause-effect chains
-└── pyproject.toml           # pip install -e .
+You add tasks → Start Agent → Agent works autonomously
+                                    ↓
+                              Takes next task
+                                    ↓
+                              Writes code (Claude CLI subprocess)
+                                    ↓
+                              Verifies result ← "Don't trust, verify"
+                              (pytest, py_compile, files on disk)
+                                    ↓
+                         PASS → next task    FAIL → retry (max 5)
+                                    ↓
+                              All done → COMPLETED
 ```
+
+### Verification: "Don't Trust, Verify"
+
+Agent says "COMPLETED"? We don't believe it. Three-tier check:
+
+| Tier | Type | Checks |
+|------|------|--------|
+| 1 | **BLOCKING** | py_compile, pytest, files exist, success criteria |
+| 2 | **WARNING** | ruff, build, git diff |
+| 3 | **ANTI-LOOP** | baseline comparison, max 5 retries, force accept |
+
+Caught the agent lying about completion with failing tests. This system prevents that.
 
 ---
 
@@ -183,11 +119,97 @@ pocketcoder-a1/
 
 | Provider | Command | Requires |
 |----------|---------|----------|
-| claude-max | `pca start` | Claude Code CLI + Max subscription |
-| claude-api | `pca start --provider claude-api` | ANTHROPIC_API_KEY |
-| ollama | `pca start --provider ollama` | Local Ollama server |
+| **claude-max** | `pca start` | Claude Max subscription |
+| **claude-api** | `pca start --provider claude-api` | Anthropic API key |
+| **ollama** | `pca start --provider ollama` | Local Ollama server |
+
+Configure in dashboard: **Settings** page.
 
 ---
+
+## CLI Commands
+
+| Command | What it does |
+|---------|-------------|
+| `pca init .` | Initialize project |
+| `pca task add "..."` | Add task |
+| `pca tasks` | Show all tasks |
+| `pca start` | Start autonomous agent |
+| `pca start --task task_001` | Work on single task |
+| `pca status` | Current status |
+| `pca validate` | Run validation checks |
+| `pca ui` | Launch dashboard (:7331) |
+| `pca config` | View settings |
+| `pca config set provider ollama` | Change provider |
+| `pca log` | Session history |
+| `pca test` | Run E2E vision tests |
+
+---
+
+## Dashboard Pages
+
+| Page | URL | What |
+|------|-----|------|
+| Dashboard | `/` | 6 metric cards, Start/Stop, live log, Quick Add |
+| Tasks | `/tasks` | List + drag-and-drop + bulk add + AI Transform |
+| Task Detail | `/task/{id}` | Full view + logs + Start/Stop/Delete |
+| Sessions | `/sessions` | Session history with metrics |
+| Activity Log | `/log` | Timeline of actions |
+| Settings | `/settings` | Provider, API key, parameters |
+| Commits | `/commits` | Git history |
+| Transform | `/transform` | Free text → structured tasks via AI |
+
+### 6 Metric Cards
+
+| Card | Example |
+|------|---------|
+| Tasks | `2/5 done` + progress bar |
+| Session | `#3` + WORKING badge |
+| Tokens | `12.4K in / 3.2K out` |
+| Cost | `$0.08` |
+| Duration | `48s` (live timer) |
+| Files | `3 modified` |
+
+---
+
+## Project Structure
+
+```
+a1/
+├── loop.py        (1219)  # Brain: subprocess → stream-json → verify
+├── dashboard.py   (3491)  # Web UI: 8 pages, 24 API, inline HTML/CSS/JS
+├── validator.py    (361)  # Eyes: syntax, tests, lint, build, criteria
+├── cli.py          (387)  # CLI: pca init/task/start/ui/test/config
+├── config.py       (126)  # Settings: CLI > env > config.json > defaults
+├── tasks.py        (236)  # Tasks: CRUD, priority, reorder, criteria
+├── checkpoint.py   (173)  # State: session, status, metrics, decisions
+└── tester/        (1087)  # Vision QA: Playwright + Claude Vision
+```
+
+---
+
+## API
+
+Full REST API — 24 endpoints. Monitor from scripts:
+
+```bash
+# Current status
+curl http://localhost:7331/api/status | python -m json.tool
+
+# Agent log
+curl "http://localhost:7331/api/log?since=0" | python -m json.tool
+
+# Add task
+curl -X POST http://localhost:7331/add-task -d "task=Fix+the+bug&description=details"
+```
+
+---
+
+## Links
+
+- [Habr article (RU)](https://habr.com/ru/articles/991022/) — PocketCoder v1
+- [Telegram](https://t.me/notes_from_cto)
+- [BVMax](https://bvmax.ru/ai)
 
 ## License
 
