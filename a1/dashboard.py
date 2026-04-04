@@ -2850,9 +2850,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # Provider options with selected state
         providers = [
-            ("claude-max", "claude-max (Claude Code CLI)"),
-            ("claude-api", "claude-api [EXPERIMENTAL]"),
-            ("ollama", "ollama [EXPERIMENTAL]"),
+            ("claude-max", "Claude Subscription (Pro/Max — via Claude Code CLI)"),
+            ("claude-api", "Claude API (Anthropic API key)"),
+            ("ollama", "Ollama (local models)"),
         ]
         options_html = ""
         for val, label in providers:
