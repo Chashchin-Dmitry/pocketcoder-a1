@@ -30,9 +30,17 @@ def cmd_init(args):
     (a1_dir / "sessions").mkdir(exist_ok=True)
     (a1_dir / "checkpoints").mkdir(exist_ok=True)
 
-    # Инициализируем менеджеры
-    CheckpointManager(project_dir)
-    TaskManager(project_dir)
+    # Инициализируем менеджеры и записываем файлы на диск
+    cm = CheckpointManager(project_dir)
+    initial_checkpoint = cm.load()
+    cm.save(initial_checkpoint)
+
+    tm = TaskManager(project_dir)
+    tm._save_data(tm._load_data())
+
+    cfg = Config(project_dir)
+    if not cfg.path.exists():
+        cfg.save()
 
     print(f"[OK] A1 initialized in {project_dir}")
     print(f"   Created: {a1_dir}")
