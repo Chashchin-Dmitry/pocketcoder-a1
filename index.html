@@ -1,27 +1,36 @@
-<h1 id="i-built-an-agent-that-codes-while-i-sleep.-it-lies.">I Built an
-Agent That Codes While I Sleep. It Lies.</h1>
+<h1
+id="pocketcoder-a1-how-i-made-my-claude-work-three-shifts">PocketCoder-A1:
+How I Made My Claude Work Three Shifts</h1>
 <blockquote>
 <p>AI doesn’t replace people, people just work more. So let’s at least
-make AI work while we sleep.</p>
+make AI work at night.</p>
 </blockquote>
 <hr />
-<p>I have 10+ projects. All through Claude Code. A subscription at 90
-euros a month. And every evening the same thing: I close the laptop, the
-subscription sits idle. Next morning, context reset, explain everything
-again.</p>
-<p>I thought: what if I write tasks before bed, press Start, and wake up
-to results? Not just “the agent wrote something”, but with real
-verification. Because, as it turns out, the agent can write
-<code>"status": "COMPLETED"</code> in the checkpoint while tests are
-failing. Files it “created” don’t exist on disk.</p>
-<p>We caught the agent lying. And spent a week teaching it not to.</p>
+<p>It so happens that I pay 100 euros a month for Claude Code. A hefty
+sum that evaporates almost instantly when your account becomes a testing
+ground of 10+ projects, where 7-8 are mine and 2-3 are my wife’s.</p>
+<p>Sharing a subscription is generally an expensive habit, but I don’t
+mind.</p>
+<p>It so happens that I’ve developed a kind of addiction to building
+projects with Claude - I constantly want to create something in it. It’s
+not that I have a light workload at my job - not at all. It’s just that
+the ease of building projects on Opus 4.6 and the expensive subscription
+provoke my brain to load the AI 24/7. It gets absurd - before bed I try
+to prepare task drafts that I plan to do tomorrow, squeezing Claude as
+much as possible for tokens on analysis and studying the project. The
+kind of thing I try to avoid during the day, because I might hit the
+usage limit.</p>
+<p>It was during one of these planning sessions that I thought - damn,
+it would be great to set up Claude so that I could write tasks for it,
+and it would complete them overnight, not just plan like I’m doing now.
+And ideally, it would also verify its own results.</p>
 <p>That’s how <strong>PocketCoder-A1</strong> was born: an autonomous
 coding agent with verification, a web dashboard, and multi-provider
-support. 7086 lines of Python, 15 modules, zero frameworks.</p>
+support. 7086 lines of Python, 15 modules, not a single framework.</p>
 <hr />
 <h2 id="table-of-contents">Table of Contents</h2>
 <ol type="1">
-<li><a href="#1-why-this-exists">Why this exists</a></li>
+<li><a href="#1-why-this-even-exists">Why this even exists</a></li>
 <li><a href="#2-what-is-pocketcoder-a1">What is PocketCoder-A1</a></li>
 <li><a href="#3-architecture">Architecture</a></li>
 <li><a href="#4-case-study-epotos-templates">Case study:
@@ -31,38 +40,39 @@ epotos-templates</a></li>
 next</a></li>
 </ol>
 <hr />
-<h2 id="why-this-exists">1. Why this exists</h2>
-<p>You know that feeling when AI tools don’t replace your work but add
-to it? I started doing things more efficiently and ended up with more
-projects. Now there are 10+. All code-based. All through Claude
-Code.</p>
-<p>The problem is simple. I’m working on one project while thoughts
-about another keep spinning: “need to add a DeepSeek provider”, “rewrite
-the config”, “write tests”. I write them down somewhere. But my hands
-won’t get to it for a week. Meanwhile the 90-euro subscription keeps
-ticking.</p>
+<h2 id="why-this-even-exists">1. Why this even exists</h2>
+<p>Actually, my thinking went even further, although I sat down to build
+the first mockups the very same evening when the idea really hit me.</p>
+<p>The idea is this. I’m working on one project, and thoughts about
+another keep spinning in my head: “need to add a DeepSeek provider”,
+“rewrite the config”, “write tests”.</p>
+<p>And the tasks are written down. But my hands won’t get to them for a
+week. Meanwhile the 90-euro subscription keeps ticking.</p>
 <p>I tried OpenClaw. It didn’t work, even with a good model nothing came
-together for me. Maybe I connected it wrong, maybe something else, but
-the result was zero.</p>
-<p>So I decided to build my own. The idea is simple: write tasks, go for
-a walk or sleep, come back to results. The agent works in sessions,
-saves state, picks up the next task automatically. After each session it
-runs real verification: pytest, py_compile, file checks on disk. A web
-dashboard shows what’s happening in real time. Primary provider is
+together for me at all. Maybe I connected it wrong, maybe something
+else, but the result was zero. I could honestly write a separate article
+about those guys, because not a single project, not even a simple
+website parser, worked for me on it.</p>
+<p>So I decided to write my own. The idea is simple: wrote tasks, went
+for a walk or to sleep, came back to the result. The agent works in
+sessions, saves state, picks up the next task by itself. After each
+session a real check runs: pytest, py_compile, checking files on disk. A
+web dashboard shows what’s happening in real time. Primary provider is
 Claude Max, plus Claude API and Ollama as experimental.</p>
-<p>Built primarily for myself. I’ll actually use this product. But I put
-it in open source, maybe someone else will find it useful too.</p>
+<p>Built primarily for myself. I actually already use this, but I put it
+in open source, maybe someone else will find it useful too.</p>
 <hr />
 <h2 id="what-is-pocketcoder-a1">2. What is PocketCoder-A1</h2>
+<p>Let me decode the strange letter A in the name. It’s Autonomous. And
+1, as in first version. Who knows, maybe it’ll take off and I’ll need to
+write updates.</p>
 <p>CLI + web dashboard. Installation:</p>
 <div class="sourceCode" id="cb1"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/Chashchin-Dmitry/pocketcoder-a1.git</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> pocketcoder-a1</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> .</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install pocketcoder-a1</span></code></pre></div>
 <p>Initialize on any project:</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pca</span> init /path/to/your-project</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pca</span> ui <span class="at">-d</span> /path/to/your-project</span></code></pre></div>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pca</span> ui</span></code></pre></div>
 <p>Dashboard opens at <code>http://localhost:7331</code>. Add tasks,
 press Start Agent, the agent works autonomously.</p>
 <p><strong>Requirements:</strong> Python 3.10+, <a
@@ -71,7 +81,7 @@ CLI</a> (<code>npm i -g @anthropic-ai/claude-code</code>).</p>
 <table>
 <thead>
 <tr class="header">
-<th>Attribute</th>
+<th>Parameter</th>
 <th>Value</th>
 </tr>
 </thead>
@@ -102,27 +112,30 @@ CLI</a> (<code>npm i -g @anthropic-ai/claude-code</code>).</p>
 </tr>
 </tbody>
 </table>
-<p>How it differs from PocketCoder v1 (my previous project): v1 is a CLI
-agent for local models, interactive. A1 is an autonomous task manager +
-executor. Press a button, leave. A completely different product.</p>
+<p>How it differs from PocketCoder v1 (my <a
+href="https://habr.com/ru/articles/991022/">previous project</a>): v1 is
+a CLI agent for local models, interactive. A1 is an autonomous task
+manager + executor. Pressed a button, left. A completely different
+product. Maybe in the future I’ll think about how to merge them.</p>
+<p>And yes, an update for the regular PocketCoder is coming soon!</p>
 <hr />
 <h2 id="architecture">3. Architecture</h2>
-<p>The entire project is 15 Python modules. Zero frameworks. HTTP server
-on standard <code>http.server</code>, JSON via standard
+<p>The entire project is 15 Python modules. Not a single framework. HTTP
+server on standard <code>http.server</code>, JSON is standard
 <code>json</code>, files via <code>pathlib</code>. The only external
 dependencies are <code>playwright</code> for E2E tests and optionally
 <code>anthropic</code> / <code>ollama</code> for alternative
 providers.</p>
-<h3 id="full-picture">3.1 Full picture</h3>
-<p>Here’s how the system works end-to-end, from <code>pca start</code>
-to completion:</p>
+<h3 id="the-full-picture">3.1 The full picture</h3>
+<p>Here’s how the entire system works, from <code>pca start</code> to
+completion:</p>
 <figure>
 <img src="1.png" alt="Full agent loop" />
 <figcaption aria-hidden="true">Full agent loop</figcaption>
 </figure>
 <p>The agent starts, captures a baseline (validation snapshot BEFORE
-work), builds a prompt, works through Claude CLI, parses results in real
-time, verifies. If everything passes, it accepts the result. If not, it
+work), builds a prompt, works through Claude CLI, parses the result in
+real time, verifies. If everything’s ok, accepts the result. If not,
 injects errors into the next session and tries again. Let’s break down
 each piece.</p>
 <h3 id="claude-cli-as-subprocess">3.2 Claude CLI as subprocess</h3>
@@ -155,14 +168,15 @@ class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a hr
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    text<span class="op">=</span><span class="va">True</span>,</span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    bufsize<span class="op">=</span><span class="dv">1</span>,</span>
 <span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
-<p>Why exactly like this? Claude Code sets <code>CLAUDECODE=1</code> in
-the environment. The subprocess inherits this, the inner
-<code>claude</code> sees the variable and crashes: “cannot launch inside
-another session”. Fix is one line, <code>env.pop</code>. Finding the
-cause took 2 hours because the error didn’t show up in stdout.</p>
+<p>Why exactly like this? Claude Code sets the variable
+<code>CLAUDECODE=1</code> in the environment. The subprocess inherits
+this, the inner <code>claude</code> sees the variable and crashes:
+“cannot launch inside another session”. Fix is one line
+<code>env.pop</code>. Finding the cause took 2 hours, because the error
+didn’t show up in stdout.</p>
 <p>Another undocumented quirk: <code>--output-format stream-json</code>
-without <code>--verbose</code> just goes silent. Nothing. Another 2
-hours.</p>
+without <code>--verbose</code> just goes silent. Silence. Another 2
+hours to find.</p>
 <table>
 <thead>
 <tr class="header">
@@ -185,7 +199,7 @@ hours.</p>
 </tr>
 <tr class="even">
 <td><code>--max-turns 25</code></td>
-<td>Prevents infinite execution</td>
+<td>Protection from infinite work</td>
 </tr>
 <tr class="odd">
 <td><code>--verbose</code></td>
@@ -197,37 +211,46 @@ hours.</p>
 </tr>
 </tbody>
 </table>
-<p>With <code>stream-json</code>, Claude outputs NDJSON, one JSON object
+<p>With <code>stream-json</code> Claude outputs NDJSON, one JSON object
 per line:</p>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;assistant&quot;</span><span class="fu">,</span><span class="dt">&quot;message&quot;</span><span class="fu">:{</span><span class="dt">&quot;content&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;tool_use&quot;</span><span class="fu">,</span><span class="dt">&quot;name&quot;</span><span class="fu">:</span><span class="st">&quot;Read&quot;</span><span class="fu">,</span><span class="dt">&quot;input&quot;</span><span class="fu">:{</span><span class="dt">&quot;file_path&quot;</span><span class="fu">:</span><span class="st">&quot;/src/app.py&quot;</span><span class="fu">}}</span><span class="ot">]</span><span class="fu">}}</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;rate_limit_event&quot;</span><span class="fu">,</span><span class="dt">&quot;usage&quot;</span><span class="fu">:{</span><span class="dt">&quot;input_tokens&quot;</span><span class="fu">:</span><span class="dv">12400</span><span class="fu">,</span><span class="dt">&quot;output_tokens&quot;</span><span class="fu">:</span><span class="dv">3200</span><span class="fu">}}</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;type&quot;</span><span class="fu">:</span><span class="st">&quot;result&quot;</span><span class="fu">,</span><span class="dt">&quot;result&quot;</span><span class="fu">:</span><span class="st">&quot;Task completed successfully.&quot;</span><span class="fu">}</span></span></code></pre></div>
 <p>The parser classifies each event and sends it to the dashboard.
-<code>tool_use</code> named <code>Read</code> becomes type “read”
-(blue), <code>Bash</code> becomes “bash” (purple), <code>thinking</code>
-becomes yellow. 8 icon types total.</p>
+<code>tool_use</code> with the name <code>Read</code> becomes type
+“read” (blue), <code>Bash</code> is “bash” (purple),
+<code>thinking</code> is yellow. 8 icon types total.</p>
 <h3 id="verification-dont-trust-verify">3.3 Verification: “Don’t trust,
 verify”</h3>
-<p>The most important part of the system.</p>
+<p>The most important part of the system. While testing, the agent would
+prematurely write completed. Meaning it made 1-2 requests and that’s
+enough for it - the AI considers it did its job. There’s actually an
+explanation for this. When you make a request via API, it’s 1 request =
+1 response. But when the request comes from the web, the system under
+the hood automatically does minimal reasoning, and somewhere it can pull
+its own custom skills (instructions for working with certain modules
+more efficiently. Very popular for Excel/Word, but actually not
+only).</p>
 <figure>
 <img src="4.png" alt="Three-tier verification" />
 <figcaption aria-hidden="true">Three-tier verification</figcaption>
 </figure>
 <p>When the agent says “COMPLETED”, we don’t believe it. A three-tier
 check kicks in.</p>
-<p><strong>Tier 1, BLOCKING.</strong> If any check fails, the session is
-rejected: <code>py_compile</code> on all .py files, <code>pytest</code>,
-check that files actually exist on disk, check
-<code>success_criteria</code> from the task.</p>
-<p><strong>Tier 2, WARNING.</strong> Results are only logged:
+<p><strong>Tier 1, BLOCKING.</strong> If even one check fails, the
+session is not accepted: <code>py_compile</code> on all .py files,
+<code>pytest</code>, checking that files actually exist on disk,
+checking <code>success_criteria</code> from the task.</p>
+<p><strong>Tier 2, WARNING.</strong> The result is only logged:
 <code>ruff</code>, <code>build</code>, <code>git diff</code>.</p>
-<p><strong>Tier 3, ANTI-LOOP.</strong> Protection against infinite
-cycles. Before the first session we capture a baseline, a snapshot of
-all pre-existing issues. Old bugs don’t count. If the agent can’t fix a
-problem in 5 attempts, the task is marked BLOCKED and the agent moves to
-the next one. On retry, errors are injected directly into the prompt:
-“VERIFICATION FAILED, attempt 2/5, BLOCKING: tests 2 failed”.</p>
+<p><strong>Tier 3, ANTI-LOOP.</strong> Protection from infinite loops.
+We want to burn tokens here, but still efficiently :) Before the first
+session we make a baseline, a snapshot of all existing issues. Old bugs
+don’t count. If the agent can’t fix a problem in 5 attempts, the task is
+marked BLOCKED, the agent moves to the next one. On retry, errors are
+injected right into the prompt: “VERIFICATION FAILED, attempt 2/5,
+BLOCKING: tests 2 failed”.</p>
 <h3 id="providers">3.4 Providers</h3>
 <figure>
 <img src="6.png" alt="Three providers, shared pipeline" />
@@ -236,9 +259,9 @@ pipeline</figcaption>
 </figure>
 <table>
 <colgroup>
-<col style="width: 30%" />
-<col style="width: 39%" />
-<col style="width: 30%" />
+<col style="width: 31%" />
+<col style="width: 40%" />
+<col style="width: 28%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -265,10 +288,10 @@ pipeline</figcaption>
 </tr>
 </tbody>
 </table>
-<p>Claude Max is the primary provider. Claude API and Ollama are
-<strong>EXPERIMENTAL</strong>. If you want to help, GitHub PRs welcome.
-I’m one person, can’t physically polish everything. Built it for myself,
-if someone wants to adapt it, I’ll gladly accept contributions.</p>
+<p>Claude Max is the primary. And I’ll be honest, the other providers
+are in a very raw state. I’m not used to asking for help, but if the
+project idea interests you - please help and get them into proper shape
+:) I’m not sure I can manage.</p>
 <h3 id="real-time-data-flow">3.5 Real-time data flow</h3>
 <figure>
 <img src="3.png" alt="Data flow: agent, dashboard, browser" />
@@ -277,10 +300,10 @@ browser</figcaption>
 </figure>
 <p>Claude CLI outputs NDJSON, the parser in <code>loop.py</code> puts it
 in <code>AGENT_LOG_BUFFER</code>, AJAX <code>/api/log</code> picks it up
-every 2 seconds, browser renders it. Metrics flow in parallel:
+every 2 seconds, the browser renders it. Metrics flow in parallel:
 <code>rate_limit_event</code> updates <code>_session_metrics</code>,
-<code>/api/status</code> serves them every 3 seconds to 6 cards. Timer
-ticks via JavaScript every second.</p>
+<code>/api/status</code> serves them every 3 seconds to 6 cards. The
+timer ticks via JavaScript every second.</p>
 <h3 id="task-lifecycle">3.6 Task lifecycle</h3>
 <figure>
 <img src="5.png" alt="Tasks: creation, priorities, states" />
@@ -295,13 +318,15 @@ or BLOCKED.</p>
 <hr />
 <h2 id="case-study-epotos-templates">4. Case study:
 epotos-templates</h2>
-<p>A real case. epotos-templates is a project for a company, document
-processing + template generation. I needed to add provider switching
-(from Ollama to DeepSeek). I wrote down my thoughts in free form and
-launched A1.</p>
+<p>A real case. epotos-templates is an internal tool for a company - you
+feed it raw text, a sample presentation, or a document, and it generates
+reusable templates from them. The app runs on a local Ollama instance.
+We needed to add a second LLM provider (DeepSeek) so users could switch
+between models depending on the task. I wrote down my thoughts in free
+form and launched A1.</p>
 <h3 id="step-1-empty-page-5-tasks-in-30-seconds">Step 1: Empty page, 5
 tasks in 30 seconds</h3>
-<p>I open the dashboard. Tasks page is empty:</p>
+<p>I open the dashboard. The Tasks page is empty:</p>
 <figure>
 <img src="01_tasks_empty.png" alt="Empty tasks page" />
 <figcaption aria-hidden="true">Empty tasks page</figcaption>
@@ -325,7 +350,7 @@ criteria:</p>
 <img src="04_transform_preview.png" alt="Preview of 5 tasks" />
 <figcaption aria-hidden="true">Preview of 5 tasks</figcaption>
 </figure>
-<p>I click “Add Selected”, tasks created with priorities #1-#5:</p>
+<p>I press “Add Selected”, tasks created with priorities #1-#5:</p>
 <figure>
 <img src="05_tasks_5_pending.png" alt="5 tasks created" />
 <figcaption aria-hidden="true">5 tasks created</figcaption>
@@ -336,7 +361,7 @@ criteria:</p>
 <img src="06_dashboard_idle.png" alt="Dashboard before start" />
 <figcaption aria-hidden="true">Dashboard before start</figcaption>
 </figure>
-<p>First task details before work begins:</p>
+<p>Details of the first task before work begins:</p>
 <figure>
 <img src="07_task_detail_empty.png" alt="Task detail" />
 <figcaption aria-hidden="true">Task detail</figcaption>
@@ -347,7 +372,7 @@ criteria:</p>
 <figcaption aria-hidden="true">Provider settings</figcaption>
 </figure>
 <h3 id="step-3-agent-working">Step 3: Agent working</h3>
-<p>Log lines appear in real time. THINK, BASH, READ:</p>
+<p>Lines appear in the log in real time. THINK, BASH, READ:</p>
 <figure>
 <img src="10_dashboard_running_log.png" alt="Agent working, live log" />
 <figcaption aria-hidden="true">Agent working, live log</figcaption>
@@ -358,14 +383,14 @@ criteria:</p>
 <figcaption aria-hidden="true">Task detail, agent working</figcaption>
 </figure>
 <h3 id="step-4-first-result">Step 4: First result</h3>
-<p>1/5 tasks done. Green checkmark. Agent automatically moved to the
+<p>1/5 tasks done. Green checkmark. The agent automatically moved to the
 next one:</p>
 <figure>
 <img src="12_dashboard_1_done.png" alt="1 task done" />
 <figcaption aria-hidden="true">1 task done</figcaption>
 </figure>
-<p>Agent analyzing the codebase, reading ollama.ts, ai-client.ts,
-grepping localhost:11434:</p>
+<p>The agent analyzes the codebase, reads ollama.ts, ai-client.ts, greps
+localhost:11434:</p>
 <figure>
 <img src="13_dashboard_log_task015.png" alt="Codebase analysis" />
 <figcaption aria-hidden="true">Codebase analysis</figcaption>
@@ -380,7 +405,7 @@ grepping localhost:11434:</p>
 <img src="15_tasks_2done_clean.png" alt="Clean view" />
 <figcaption aria-hidden="true">Clean view</figcaption>
 </figure>
-<p>Agent designing provider architecture:</p>
+<p>The agent designs the provider architecture:</p>
 <figure>
 <img src="16_dashboard_log_task016.png" alt="Designing architecture" />
 <figcaption aria-hidden="true">Designing architecture</figcaption>
@@ -392,27 +417,27 @@ it to write documentation too:</p>
 <img src="17_dashboard_message_typed.png" alt="Typing a message" />
 <figcaption aria-hidden="true">Typing a message</figcaption>
 </figure>
-<p>Message queued, the agent will read it next session:</p>
+<p>Message in queue, the agent will read it next session:</p>
 <figure>
 <img src="18_dashboard_message_sent.png" alt="Message sent" />
 <figcaption aria-hidden="true">Message sent</figcaption>
 </figure>
 <h3 id="step-7-all-done">Step 7: All done</h3>
-<p>5/5 tasks! Agent still working, processing my documentation
-request:</p>
+<p>5/5 tasks! The agent is still working, processing my message about
+documentation:</p>
 <figure>
 <img src="19_dashboard_5of5_running.png"
 alt="5/5 tasks, agent still working" />
 <figcaption aria-hidden="true">5/5 tasks, agent still
 working</figcaption>
 </figure>
-<p>Verification passed, agent writing documentation:</p>
+<p>Verification passed, the agent writes documentation:</p>
 <figure>
 <img src="20_livelog_verification_docs.png"
 alt="Verification + documentation" />
 <figcaption aria-hidden="true">Verification + documentation</figcaption>
 </figure>
-<p>Updating CLAUDE.md, creating MEMORY.md:</p>
+<p>Updates CLAUDE.md, creates MEMORY.md:</p>
 <figure>
 <img src="21_livelog_memory_write.png" alt="Writing documentation" />
 <figcaption aria-hidden="true">Writing documentation</figcaption>
@@ -449,9 +474,9 @@ JavaScript and HTML in one file.</p>
 <h3 id="pages">8 pages</h3>
 <table>
 <colgroup>
-<col style="width: 25%" />
-<col style="width: 20%" />
-<col style="width: 54%" />
+<col style="width: 26%" />
+<col style="width: 21%" />
+<col style="width: 52%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -469,7 +494,7 @@ JavaScript and HTML in one file.</p>
 <tr class="even">
 <td>Tasks</td>
 <td><code>/tasks</code></td>
-<td>Task list + drag-and-drop + bulk add + AI Transform</td>
+<td>List + drag-and-drop + bulk add + AI Transform</td>
 </tr>
 <tr class="odd">
 <td>Task Detail</td>
@@ -548,23 +573,21 @@ class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="
 <hr />
 <h2 id="conclusions-and-whats-next">6. Conclusions and what’s next</h2>
 <p>PocketCoder-A1 works. 5 tasks on a real project in 13 minutes,
-autonomously. With verification, with live logging, with the ability to
-send the agent a message while it’s working.</p>
-<p>Autonomous sessions work: press Start, leave, come back to results.
-Verification actually catches the lying agent on three levels: blocking,
-warning, anti-loop. Dashboard shows everything in real time. Queue
-Message lets you write to the agent while it works.</p>
-<p>In progress: auto-checkpoint at 70% context, git integration
+autonomously. With verification, with live log, with the ability to send
+a message to the agent right while it’s working.</p>
+<p>Autonomous sessions work: pressed Start, left, came back to the
+result. Verification actually catches the lying agent on three levels:
+blocking, warning, anti-loop. Dashboard shows everything in real time.
+Queue Message lets you write to the agent while it works.</p>
+<p>In development: auto-checkpoint at 70% context, git integration
 (branches + atomic commits), PyPI + uv release.</p>
-<p>We’re in the middle of a vibe-coding boom right now. It would be cool
-to have more tools that optimize your workflow. Not replacing humans,
-extending capabilities. You sleep, your subscription works.</p>
 <hr />
 <p><strong>PocketCoder-A1</strong> is about open source.</p>
 <p><strong>GitHub:</strong> <a
 href="https://github.com/Chashchin-Dmitry/pocketcoder-a1">github.com/Chashchin-Dmitry/pocketcoder-a1</a></p>
 <hr />
-<p>I’d appreciate a like and a subscribe to the channel :) <a
-href="https://t.me/notes_from_cto">https://t.me/notes_from_cto</a></p>
+<p>I’d appreciate a follow on LinkedIn :) <a
+href="https://www.linkedin.com/in/dmitrii-chashchin-02844125b/">Dmitrii
+Chashchin on LinkedIn</a></p>
 <p>Our website: <a
 href="https://bvmax.ru/ai">https://bvmax.ru/ai</a></p>
