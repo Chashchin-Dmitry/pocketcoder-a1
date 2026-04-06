@@ -2,12 +2,14 @@
 Session Loop — основной цикл автономной работы
 """
 
+from contextlib import contextmanager
+import os
 import signal
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from .checkpoint import CheckpointManager
 from .tasks import TaskManager
@@ -796,20 +798,57 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         except Exception as e:
             return f"ERROR: {type(e).__name__}: {e}"
 
+    @staticmethod
+    def _normalize_optional_value(value: Optional[str]) -> Optional[str]:
+        """Treat blank strings as unset values."""
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    def _get_clean_env(self, key: str) -> Optional[str]:
+        """Read an env var and treat blank strings as unset."""
+        return self._normalize_optional_value(os.environ.get(key))
+
+    @contextmanager
+    def _clean_anthropic_env(self):
+        """Temporarily remove blank Anthropic env vars before client creation."""
+        removed = {}
+        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"):
+            raw_value = os.environ.get(key)
+            if raw_value is not None and not raw_value.strip():
+                removed[key] = raw_value
+                os.environ.pop(key, None)
+        try:
+            yield
+        finally:
+            for key, value in removed.items():
+                os.environ[key] = value
+
+    def _resolve_claude_api_config(self) -> Tuple[Optional[str], str, Optional[str]]:
+        """Resolve API-key auth, model, and base URL for the Anthropic SDK."""
+        api_key = self._normalize_optional_value(self.api_key) or self._get_clean_env("ANTHROPIC_API_KEY")
+        model = (
+            self._normalize_optional_value(self.model)
+            or self._get_clean_env("ANTHROPIC_DEFAULT_SONNET_MODEL")
+            or self._get_clean_env("ANTHROPIC_DEFAULT_OPUS_MODEL")
+            or self._get_clean_env("ANTHROPIC_DEFAULT_HAIKU_MODEL")
+            or "claude-sonnet-4-20250514"
+        )
+        base_url = self._normalize_optional_value(self.base_url) or self._get_clean_env("ANTHROPIC_BASE_URL")
+        return api_key, model, base_url
+
     def _run_claude_api(self, prompt: str) -> int:
         """Run session via Anthropic API [EXPERIMENTAL].
 
         Full agentic loop: send message → get response → execute tools → repeat.
         Requires anthropic SDK and API key.
         """
-        import os
-
         print()
         print("  [EXPERIMENTAL] Claude API provider - tested, but still might have issues")
         print()
 
-        # Resolve API key: self.api_key > env var
-        api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        api_key, model, base_url = self._resolve_claude_api_config()
         if not api_key:
             print("[ERROR] No API key. Set via:")
             print("  pca config api_key sk-ant-...")
@@ -839,18 +878,12 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"session_{session_num:03d}.log"
 
-        model = (
-            self.model
-            or os.environ.get("ANTHROPIC_DEFAULT_SONNET_MODEL")
-            or os.environ.get("ANTHROPIC_DEFAULT_OPUS_MODEL")
-            or os.environ.get("ANTHROPIC_DEFAULT_HAIKU_MODEL")
-            or "claude-sonnet-4-20250514"
-        )
-        base_url = self.base_url or os.environ.get("ANTHROPIC_BASE_URL")
         client_kwargs = {"api_key": api_key}
         if base_url:
             client_kwargs["base_url"] = base_url
-        client = anthropic.Anthropic(**client_kwargs)
+        with self._clean_anthropic_env():
+            client = anthropic.Anthropic(**client_kwargs)
+
         tools = self._define_api_tools()
         messages = [{"role": "user", "content": prompt}]
 

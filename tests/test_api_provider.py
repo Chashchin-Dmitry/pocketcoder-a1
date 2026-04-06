@@ -1,35 +1,12 @@
-"""
-Tests for PR: base_url and model env var support for claude-api provider.
+"""Tests for claude-api provider env handling and integration behavior.
 
-Mirrors the structure of sandbox/test-verify/tests/test_calculator.py:
-- Unit tests run always (no API keys needed)
-- Integration test requires real API keys via --env-file:
-
-    pytest tests/test_api_provider.py -v -s --env-file ./openrouter.env
-
-openrouter.env file format for OpenRouter/Anthropic API (example):
-  export ANTHROPIC_BASE_URL="https://openrouter.ai/api"
-  export ANTHROPIC_AUTH_TOKEN="sk-or-..."
-  export ANTHROPIC_API_KEY="" # Important: Must be explicitly empty
-  export ANTHROPIC_DEFAULT_OPUS_MODEL="anthropic/claude-haiku-4.5"
-  export ANTHROPIC_DEFAULT_SONNET_MODEL="anthropic/claude-haiku-4.5"
-  export ANTHROPIC_DEFAULT_HAIKU_MODEL="anthropic/claude-haiku-4.5"
-  export CLAUDE_CODE_SUBAGENT_MODEL="anthropic/claude-haiku-4.5"
-
-    pytest tests/test_api_provider.py -v -s --env-file ./zai.env
-
-zai.env file format for z.ai API (example):
-export ANTHROPIC_BASE_URL="https://api.z.ai/api/anthropic"
-export ANTHROPIC_AUTH_TOKEN="..."
-export ANTHROPIC_API_KEY="" # Important: Must be explicitly empty
-export ANTHROPIC_DEFAULT_OPUS_MODEL="glm-4.7"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="glm-4.7"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="glm-4.7"
-export CLAUDE_CODE_SUBAGENT_MODEL="glm-4.7"
+See tests/test_api_provider.md for usage notes and env-file examples.
 """
 
+import os
 import subprocess
 import sys
+import shlex
 from pathlib import Path
 
 import pytest
@@ -38,19 +15,33 @@ from a1.config import Config, ENV_MAP
 from a1.loop import SessionLoop
 
 
+def _parse_env_assignment(line: str) -> tuple[str, str] | None:
+    """Parse one shell-style env assignment."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+
+    tokens = shlex.split(stripped, comments=True, posix=True)
+    if not tokens:
+        return None
+    if tokens[0] == "export":
+        tokens = tokens[1:]
+    if len(tokens) != 1 or "=" not in tokens[0]:
+        return None
+
+    key, value = tokens[0].split("=", 1)
+    return key.strip(), value
+
+
 def _parse_env_file(path: str) -> dict:
-    """Parse a .env file into a plain dict. Handles KEY=value, # comments, export KEY=value."""
+    """Parse a shell-style env file into a plain dict."""
     result = {}
     for line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
+        parsed = _parse_env_assignment(line)
+        if parsed is None:
             continue
-        if line.startswith("export "):
-            line = line[7:]
-        if "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        result[key.strip()] = value.strip().strip('"').strip("'")
+        key, value = parsed
+        result[key] = value
     return result
 
 
@@ -101,6 +92,16 @@ class TestConfigChanges:
         assert "model_opus" not in result
 
 
+class TestEnvFileParsing:
+    """Covers shell-style env-file parsing used by the integration test."""
+
+    def test_export_empty_value_with_inline_comment(self):
+        parsed = _parse_env_assignment(
+            'export ANTHROPIC_AUTH_TOKEN="" # Important: Must be explicitly empty'
+        )
+        assert parsed == ("ANTHROPIC_AUTH_TOKEN", "")
+
+
 # ---------------------------------------------------------------------------
 # cli.py changes
 # ---------------------------------------------------------------------------
@@ -127,6 +128,30 @@ class TestLoopChanges:
     def test_base_url_default_none(self, tmp_path):
         loop = SessionLoop(project_dir=tmp_path)
         assert loop.base_url is None
+
+    def test_normalize_optional_value(self):
+        assert SessionLoop._normalize_optional_value(None) is None
+        assert SessionLoop._normalize_optional_value("") is None
+        assert SessionLoop._normalize_optional_value("   ") is None
+        assert SessionLoop._normalize_optional_value(" value ") == "value"
+
+    def test_clean_anthropic_env_restores_values(self, tmp_path, monkeypatch):
+        loop = SessionLoop(project_dir=tmp_path)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+        monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "   ")
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", "")
+        monkeypatch.setenv("UNRELATED_ENV", "")
+
+        with loop._clean_anthropic_env():
+            assert "ANTHROPIC_API_KEY" not in os.environ
+            assert "ANTHROPIC_AUTH_TOKEN" not in os.environ
+            assert "ANTHROPIC_BASE_URL" not in os.environ
+            assert os.environ["UNRELATED_ENV"] == ""
+
+        assert os.environ["ANTHROPIC_API_KEY"] == ""
+        assert os.environ["ANTHROPIC_AUTH_TOKEN"] == "   "
+        assert os.environ["ANTHROPIC_BASE_URL"] == ""
+        assert os.environ["UNRELATED_ENV"] == ""
 
 
 # ---------------------------------------------------------------------------
