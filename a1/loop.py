@@ -2,12 +2,14 @@
 Session Loop — основной цикл автономной работы
 """
 
+from contextlib import contextmanager
+import os
 import signal
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from .checkpoint import CheckpointManager
 from .tasks import TaskManager
@@ -28,6 +30,7 @@ class SessionLoop:
         provider: str = "claude-max",
         model: str = None,
         api_key: str = None,
+        base_url: str = None,
         ollama_host: str = None,
         ollama_model: str = None,
         max_sessions: int = 100,
@@ -39,6 +42,7 @@ class SessionLoop:
         self.provider = provider
         self.model = model
         self.api_key = api_key
+        self.base_url = base_url
         self.ollama_host = ollama_host or "http://localhost:11434"
         self.ollama_model = ollama_model or "qwen3:30b-a3b"
         self.max_sessions = max_sessions
@@ -451,6 +455,25 @@ class SessionLoop:
         verification_prompt = self._get_verification_prompt()
 
         if is_first:
+            has_claude_md = (self.project_dir / "CLAUDE.md").exists()
+            has_todo_md = (self.project_dir / "TODO.md").exists()
+            protocol_steps = []
+            step = 1
+            if has_claude_md:
+                protocol_steps.append(f"{step}. Read CLAUDE.md for project context")
+                step += 1
+            if has_todo_md:
+                protocol_steps.append(f"{step}. Read TODO.md for detailed phases")
+                step += 1
+            protocol_steps += [
+                f"{step}. Pick first pending task from tasks list",
+                f"{step + 1}. Work step by step",
+                f"{step + 2}. After each change — validate (syntax, tests, lint)",
+                f"{step + 3}. If validation OK -> git commit -> mark task done -> next task",
+                f"{step + 4}. If validation FAIL -> fix the issue",
+            ]
+            protocol_section = "\n".join(protocol_steps)
+
             prompt = f"""
 AUTONOMOUS MODE ACTIVATED — Session #1
 
@@ -465,13 +488,7 @@ Working directory: {self.project_dir}
 {tasks_summary}
 
 ## PROTOCOL
-1. Read CLAUDE.md for project context
-2. Read TODO.md for detailed phases
-3. Pick first pending task from tasks list
-4. Work step by step
-5. After each change — validate (syntax, tests, lint)
-6. If validation OK → git commit → mark task done → next task
-7. If validation FAIL → fix the issue
+{protocol_section}
 
 ## HOW TO UPDATE TASK STATUS
 When you complete a task, edit .a1/tasks.json:
@@ -781,20 +798,57 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         except Exception as e:
             return f"ERROR: {type(e).__name__}: {e}"
 
+    @staticmethod
+    def _normalize_optional_value(value: Optional[str]) -> Optional[str]:
+        """Treat blank strings as unset values."""
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    def _get_clean_env(self, key: str) -> Optional[str]:
+        """Read an env var and treat blank strings as unset."""
+        return self._normalize_optional_value(os.environ.get(key))
+
+    @contextmanager
+    def _clean_anthropic_env(self):
+        """Temporarily remove blank Anthropic env vars before client creation."""
+        removed = {}
+        for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"):
+            raw_value = os.environ.get(key)
+            if raw_value is not None and not raw_value.strip():
+                removed[key] = raw_value
+                os.environ.pop(key, None)
+        try:
+            yield
+        finally:
+            for key, value in removed.items():
+                os.environ[key] = value
+
+    def _resolve_claude_api_config(self) -> Tuple[Optional[str], str, Optional[str]]:
+        """Resolve API-key auth, model, and base URL for the Anthropic SDK."""
+        api_key = self._normalize_optional_value(self.api_key) or self._get_clean_env("ANTHROPIC_API_KEY")
+        model = (
+            self._normalize_optional_value(self.model)
+            or self._get_clean_env("ANTHROPIC_DEFAULT_SONNET_MODEL")
+            or self._get_clean_env("ANTHROPIC_DEFAULT_OPUS_MODEL")
+            or self._get_clean_env("ANTHROPIC_DEFAULT_HAIKU_MODEL")
+            or "claude-sonnet-4-20250514"
+        )
+        base_url = self._normalize_optional_value(self.base_url) or self._get_clean_env("ANTHROPIC_BASE_URL")
+        return api_key, model, base_url
+
     def _run_claude_api(self, prompt: str) -> int:
         """Run session via Anthropic API [EXPERIMENTAL].
 
         Full agentic loop: send message → get response → execute tools → repeat.
         Requires anthropic SDK and API key.
         """
-        import os
-
         print()
-        print("  [EXPERIMENTAL] Claude API provider — untested, may have issues")
+        print("  [EXPERIMENTAL] Claude API provider - tested, but still might have issues")
         print()
 
-        # Resolve API key: self.api_key > env var
-        api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        api_key, model, base_url = self._resolve_claude_api_config()
         if not api_key:
             print("[ERROR] No API key. Set via:")
             print("  pca config api_key sk-ant-...")
@@ -824,14 +878,19 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"session_{session_num:03d}.log"
 
-        model = self.model or "claude-sonnet-4-20250514"
-        client = anthropic.Anthropic(api_key=api_key)
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        with self._clean_anthropic_env():
+            client = anthropic.Anthropic(**client_kwargs)
+
         tools = self._define_api_tools()
         messages = [{"role": "user", "content": prompt}]
 
         system_prompt = (
             "You are an autonomous coding agent. Work on the tasks described in the user message. "
-            "Use the provided tools to read, write, and edit files. Validate your changes."
+            "Use the provided tools to read, write, and edit files. Validate your changes. "
+            "Do not use emoji or any non-ASCII characters in your responses or in any files you create."
         )
 
         try:
@@ -962,7 +1021,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         with instructions, but does NOT execute them automatically.
         """
         print()
-        print("  [EXPERIMENTAL] Ollama provider — untested, may have issues")
+        print("  [EXPERIMENTAL] Ollama provider - untested, may have issues")
         print(f"  Host: {self.ollama_host}, Model: {self.ollama_model}")
         print()
 

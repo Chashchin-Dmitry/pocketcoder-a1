@@ -23,6 +23,13 @@ ENV/
 # Sandbox / test projects
 sandbox/
 
+# Integration test artifacts
+tests/result/
+
+# Environment variables for Claude API keys
+*.env
+.env
+
 # Images / screenshots (general)
 *.JPG
 *.jpg
