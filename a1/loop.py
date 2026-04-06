@@ -396,7 +396,7 @@ class SessionLoop:
         if not queue_file.exists():
             return ""
         try:
-            data = json.loads(queue_file.read_text())
+            data = json.loads(queue_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, IOError):
             return ""
         unread = [m for m in data.get("messages", []) if not m.get("read")]
@@ -406,7 +406,7 @@ class SessionLoop:
         for m in data["messages"]:
             if not m.get("read"):
                 m["read"] = True
-        queue_file.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        queue_file.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         lines = ["## USER MESSAGES (from queue)"]
         for m in unread:
             lines.append(f"- [{m.get('added_at', '?')}] {m['text']}")
@@ -586,11 +586,13 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
 
             output_lines = []
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8") as f:
                 while True:
                     line = self._current_process.stdout.readline()
                     if not line and self._current_process.poll() is not None:
@@ -835,7 +837,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         )
 
         try:
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8") as f:
                 for turn in range(self.max_turns):
                     if not self._running:
                         break
@@ -993,7 +995,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             client = _ollama.Client(host=self.ollama_host)
 
             full_response = []
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8") as f:
                 stream = client.chat(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
