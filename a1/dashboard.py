@@ -1827,7 +1827,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 queue_data = {"messages": []}
                 if queue_file.exists():
                     try:
-                        queue_data = json.loads(queue_file.read_text())
+                        queue_data = json.loads(queue_file.read_text(encoding="utf-8"))
                     except (json.JSONDecodeError, IOError):
                         pass
                 queue_data["messages"].append({
@@ -1835,7 +1835,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "added_at": datetime.now().isoformat(),
                     "read": False,
                 })
-                queue_file.write_text(json.dumps(queue_data, indent=2, ensure_ascii=False))
+                queue_file.write_text(json.dumps(queue_data, indent=2, ensure_ascii=False), encoding="utf-8")
                 log_activity("Message queued", msg_text[:50], "info")
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -2410,7 +2410,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if checkpoints_dir.exists():
             for f in sorted(checkpoints_dir.glob('session_*.json')):
                 try:
-                    data = json.loads(f.read_text())
+                    data = json.loads(f.read_text(encoding="utf-8"))
                     if data.get('current_task') == task_id:
                         session_count += 1
                         sn = data.get('session', '?')
@@ -2590,7 +2590,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if checkpoints_dir.exists():
             for f in sorted(checkpoints_dir.glob('session_*.json'), reverse=True)[:10]:
                 try:
-                    data = json.loads(f.read_text())
+                    data = json.loads(f.read_text(encoding="utf-8"))
                     session_num = data.get('session', '?')
                     status = data.get('status', 'Unknown')
                     files = len(data.get('files_modified', []))
@@ -3259,7 +3259,7 @@ Return format: [{{"title": "...", "description": "...", "success_criteria": "...
         if checkpoints_dir.exists():
             for f in sorted(checkpoints_dir.glob('session_*.json')):
                 try:
-                    data = json.loads(f.read_text())
+                    data = json.loads(f.read_text(encoding="utf-8"))
                     if data.get('current_task') == task_id:
                         sessions.append({
                             'session': data.get('session'),

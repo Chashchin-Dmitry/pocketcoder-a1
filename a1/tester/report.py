@@ -85,7 +85,7 @@ class TestReport:
         }
 
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         return path
@@ -181,7 +181,7 @@ class TestReport:
 </body>
 </html>'''
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(html)
 
         return path
