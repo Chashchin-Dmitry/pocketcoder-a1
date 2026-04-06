@@ -28,6 +28,7 @@ class SessionLoop:
         provider: str = "claude-max",
         model: str = None,
         api_key: str = None,
+        base_url: str = None,
         ollama_host: str = None,
         ollama_model: str = None,
         max_sessions: int = 100,
@@ -39,6 +40,7 @@ class SessionLoop:
         self.provider = provider
         self.model = model
         self.api_key = api_key
+        self.base_url = base_url
         self.ollama_host = ollama_host or "http://localhost:11434"
         self.ollama_model = ollama_model or "qwen3:30b-a3b"
         self.max_sessions = max_sessions
@@ -451,6 +453,25 @@ class SessionLoop:
         verification_prompt = self._get_verification_prompt()
 
         if is_first:
+            has_claude_md = (self.project_dir / "CLAUDE.md").exists()
+            has_todo_md = (self.project_dir / "TODO.md").exists()
+            protocol_steps = []
+            step = 1
+            if has_claude_md:
+                protocol_steps.append(f"{step}. Read CLAUDE.md for project context")
+                step += 1
+            if has_todo_md:
+                protocol_steps.append(f"{step}. Read TODO.md for detailed phases")
+                step += 1
+            protocol_steps += [
+                f"{step}. Pick first pending task from tasks list",
+                f"{step + 1}. Work step by step",
+                f"{step + 2}. After each change — validate (syntax, tests, lint)",
+                f"{step + 3}. If validation OK -> git commit -> mark task done -> next task",
+                f"{step + 4}. If validation FAIL -> fix the issue",
+            ]
+            protocol_section = "\n".join(protocol_steps)
+
             prompt = f"""
 AUTONOMOUS MODE ACTIVATED — Session #1
 
@@ -465,13 +486,7 @@ Working directory: {self.project_dir}
 {tasks_summary}
 
 ## PROTOCOL
-1. Read CLAUDE.md for project context
-2. Read TODO.md for detailed phases
-3. Pick first pending task from tasks list
-4. Work step by step
-5. After each change — validate (syntax, tests, lint)
-6. If validation OK → git commit → mark task done → next task
-7. If validation FAIL → fix the issue
+{protocol_section}
 
 ## HOW TO UPDATE TASK STATUS
 When you complete a task, edit .a1/tasks.json:
@@ -790,7 +805,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         import os
 
         print()
-        print("  [EXPERIMENTAL] Claude API provider — untested, may have issues")
+        print("  [EXPERIMENTAL] Claude API provider - tested, but still might have issues")
         print()
 
         # Resolve API key: self.api_key > env var
@@ -824,14 +839,25 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         log_dir.mkdir(parents=True, exist_ok=True)
         log_file = log_dir / f"session_{session_num:03d}.log"
 
-        model = self.model or "claude-sonnet-4-20250514"
-        client = anthropic.Anthropic(api_key=api_key)
+        model = (
+            self.model
+            or os.environ.get("ANTHROPIC_DEFAULT_SONNET_MODEL")
+            or os.environ.get("ANTHROPIC_DEFAULT_OPUS_MODEL")
+            or os.environ.get("ANTHROPIC_DEFAULT_HAIKU_MODEL")
+            or "claude-sonnet-4-20250514"
+        )
+        base_url = self.base_url or os.environ.get("ANTHROPIC_BASE_URL")
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        client = anthropic.Anthropic(**client_kwargs)
         tools = self._define_api_tools()
         messages = [{"role": "user", "content": prompt}]
 
         system_prompt = (
             "You are an autonomous coding agent. Work on the tasks described in the user message. "
-            "Use the provided tools to read, write, and edit files. Validate your changes."
+            "Use the provided tools to read, write, and edit files. Validate your changes. "
+            "Do not use emoji or any non-ASCII characters in your responses or in any files you create."
         )
 
         try:
@@ -962,7 +988,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         with instructions, but does NOT execute them automatically.
         """
         print()
-        print("  [EXPERIMENTAL] Ollama provider — untested, may have issues")
+        print("  [EXPERIMENTAL] Ollama provider - untested, may have issues")
         print(f"  Host: {self.ollama_host}, Model: {self.ollama_model}")
         print()
 

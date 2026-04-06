@@ -55,6 +55,9 @@ Repository = "https://github.com/Chashchin-Dmitry/pocketcoder-a1"
 [tool.setuptools.packages.find]
 include = ["a1*"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"

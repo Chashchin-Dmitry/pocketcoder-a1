@@ -14,6 +14,7 @@ DEFAULTS = {
     "provider": "claude-max",
     "model": None,
     "api_key": None,
+    "base_url": None,
     "ollama_host": "http://localhost:11434",
     "ollama_model": "qwen3:30b-a3b",
     "max_sessions": 100,
@@ -25,6 +26,10 @@ DEFAULTS = {
 # Env var → config key mapping
 ENV_MAP = {
     "ANTHROPIC_API_KEY": "api_key",
+    "ANTHROPIC_BASE_URL": "base_url",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "model_haiku",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "model_sonnet",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "model_opus",
     "OLLAMA_HOST": "ollama_host",
     "OLLAMA_MODEL": "ollama_model",
 }
@@ -103,6 +108,11 @@ class Config:
             if val:
                 result[config_key] = val
 
+        # OpenRouter sets ANTHROPIC_AUTH_TOKEN as the real key and blanks ANTHROPIC_API_KEY
+        auth_token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
+        if auth_token:
+            result["api_key"] = auth_token
+
         # 4. Overlay CLI args (skip None values — means "not provided")
         if cli_args:
             for k, v in cli_args.items():
@@ -113,7 +123,14 @@ class Config:
         # Store it separately so loop.py can access if needed
         result.pop("context_threshold", None)
 
-        return result
+        # Only keep keys that match SessionLoop.__init__ parameters.
+        # ENV_MAP may inject model_haiku/sonnet/opus which are not valid params.
+        VALID_PARAMS = {
+            "provider", "model", "api_key", "base_url",
+            "ollama_host", "ollama_model",
+            "max_sessions", "max_turns", "session_delay",
+        }
+        return {k: v for k, v in result.items() if k in VALID_PARAMS}
 
     def mask_api_key(self, key: Optional[str] = None) -> Optional[str]:
         """Mask API key for display: sk-ant-api03-...xxxx."""

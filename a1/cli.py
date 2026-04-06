@@ -135,6 +135,7 @@ def cmd_start(args):
         "provider": args.provider if args.provider != "claude-max" else None,
         "model": getattr(args, "model", None),
         "api_key": getattr(args, "api_key", None),
+        "base_url": getattr(args, "base_url", None),
         "ollama_host": getattr(args, "ollama_host", None),
         "ollama_model": getattr(args, "ollama_model", None),
         "max_sessions": args.max_sessions if args.max_sessions != 100 else None,
@@ -342,6 +343,7 @@ def main():
     )
     p_start.add_argument("--model", help="Model name (provider-specific)")
     p_start.add_argument("--api-key", help="Anthropic API key (or env ANTHROPIC_API_KEY)")
+    p_start.add_argument("--base-url", help="Custom Anthropic-compatible base URL (or env ANTHROPIC_BASE_URL)")
     p_start.add_argument("--ollama-host", help="Ollama host URL")
     p_start.add_argument("--ollama-model", help="Ollama model name")
     p_start.add_argument("--max-turns", type=int, help="Max turns per session (default: 25)")
