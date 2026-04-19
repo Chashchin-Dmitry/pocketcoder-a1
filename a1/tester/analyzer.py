@@ -65,7 +65,9 @@ Note: Since you cannot see the actual image in --print mode, analyze based on th
         try:
             result = subprocess.run(
                 ["claude", "--print", "-p", prompt],
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
+                timeout=60
             )
 
             if result.returncode != 0:

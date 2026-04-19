@@ -58,7 +58,7 @@ class TaskManager:
             return {"raw_thoughts": [], "tasks": [], "next_id": 1}
 
         try:
-            with open(self.tasks_file, "r") as f:
+            with open(self.tasks_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (json.JSONDecodeError, IOError):
             return {"raw_thoughts": [], "tasks": [], "next_id": 1}
@@ -76,7 +76,7 @@ class TaskManager:
 
     def _save_data(self, data: Dict[str, Any]) -> None:
         """Сохранить данные"""
-        with open(self.tasks_file, "w") as f:
+        with open(self.tasks_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     def add_raw_thought(self, thought: str) -> None:

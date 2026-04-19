@@ -4,6 +4,7 @@ Session Loop — основной цикл автономной работы
 
 import signal
 import subprocess
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -99,6 +100,15 @@ class SessionLoop:
         metrics["context_percent"] = self._context_percent
         metrics["context_overflow"] = self._context_overflow
         return metrics
+
+    def _safe_print(self, text: str, end: str = "\n", flush: bool = False):
+        """Print text without crashing on narrow Windows console encodings."""
+        try:
+            print(text, end=end, flush=flush)
+        except UnicodeEncodeError:
+            enc = sys.stdout.encoding or "utf-8"
+            safe_text = str(text).encode(enc, errors="replace").decode(enc, errors="replace")
+            print(safe_text, end=end, flush=flush)
 
     def _classify_tool(self, tool_name: str, tool_input: dict):
         """Classify a tool_use block into (display_text, event_type)"""
@@ -586,11 +596,13 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 bufsize=1,
             )
 
             output_lines = []
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8", errors="replace", newline="\n") as f:
                 while True:
                     line = self._current_process.stdout.readline()
                     if not line and self._current_process.poll() is not None:
@@ -604,7 +616,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                     # Parse stream-json NDJSON events
                     display_text, event_type = self._parse_stream_event(line)
                     if display_text:
-                        print(display_text)
+                        self._safe_print(display_text)
                         if self._log_callback:
                             try:
                                 self._log_callback(display_text, event_type)
@@ -753,6 +765,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                 cmd = input_data["command"]
                 result = subprocess.run(
                     cmd, shell=True, capture_output=True, text=True,
+                    encoding="utf-8", errors="replace",
                     timeout=120, cwd=str(self.project_dir),
                 )
                 output = result.stdout + result.stderr
@@ -771,7 +784,9 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                     ["grep", "-rn", "--include=*.py", "--include=*.js",
                      "--include=*.ts", "--include=*.json", "--include=*.md",
                      pattern, path],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True, text=True,
+                    encoding="utf-8", errors="replace",
+                    timeout=30,
                 )
                 return result.stdout[:10000] if result.stdout else "(no matches)"
 
@@ -835,7 +850,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
         )
 
         try:
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8", errors="replace", newline="\n") as f:
                 for turn in range(self.max_turns):
                     if not self._running:
                         break
@@ -868,7 +883,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                     for block in response.content:
                         if block.type == "text" and block.text.strip():
                             text = block.text[:200]
-                            print(f"  {text}")
+                            self._safe_print(f"  {text}")
                             f.write(f"[text] {text}\n")
                             if self._log_callback:
                                 try:
@@ -879,7 +894,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                         elif block.type == "tool_use":
                             self._session_metrics["tools_used"] += 1
                             display, ev_type = self._classify_tool(block.name, block.input)
-                            print(f"  {display}")
+                            self._safe_print(f"  {display}")
                             f.write(f"[tool] {display}\n")
                             if self._log_callback:
                                 try:
@@ -993,7 +1008,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
             client = _ollama.Client(host=self.ollama_host)
 
             full_response = []
-            with open(log_file, "w") as f:
+            with open(log_file, "w", encoding="utf-8", errors="replace", newline="\n") as f:
                 stream = client.chat(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
@@ -1009,7 +1024,7 @@ Edit .a1/checkpoint.json — set current_task, files_modified, decisions, last_a
                     content = message.get("content", "")
                     if content:
                         full_response.append(content)
-                        print(content, end="", flush=True)
+                        self._safe_print(content, end="", flush=True)
                         f.write(content)
 
                     # Update metrics from Ollama response

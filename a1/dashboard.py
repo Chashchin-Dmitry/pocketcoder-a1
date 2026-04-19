@@ -2754,7 +2754,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 ['git', 'log', '--format=%h|%s|%cr|%an', '-20'],
                 cwd=PROJECT_DIR,
                 capture_output=True,
-                text=True
+                text=True,
+                encoding='utf-8',
+                errors='replace'
             )
             if result.returncode == 0:
                 for line in result.stdout.strip().split('\n'):
@@ -2809,7 +2811,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             result = subprocess.run(
                 ['git', 'branch', '--show-current'],
-                cwd=PROJECT_DIR, capture_output=True, text=True
+                cwd=PROJECT_DIR, capture_output=True, text=True,
+                encoding='utf-8', errors='replace'
             )
             if result.returncode == 0:
                 branch = result.stdout.strip()
@@ -3163,6 +3166,8 @@ Return format: [{{"title": "...", "description": "...", "success_criteria": "...
                 env=env,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
                 timeout=300,
             )
             output = result.stdout.strip()
