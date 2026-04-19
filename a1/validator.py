@@ -60,6 +60,8 @@ class Validator:
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
             )
             return result.returncode, result.stdout, result.stderr

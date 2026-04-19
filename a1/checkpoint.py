@@ -27,7 +27,7 @@ class CheckpointManager:
             return self._create_initial()
 
         try:
-            with open(self.checkpoint_file, "r") as f:
+            with open(self.checkpoint_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             return self._create_initial()
@@ -37,13 +37,13 @@ class CheckpointManager:
         checkpoint["updated_at"] = datetime.now().isoformat()
 
         # Сохраняем текущий
-        with open(self.checkpoint_file, "w") as f:
+        with open(self.checkpoint_file, "w", encoding="utf-8") as f:
             json.dump(checkpoint, f, indent=2, ensure_ascii=False)
 
         # Архивируем копию
         session = checkpoint.get("session", 0)
         archive_file = self.checkpoints_dir / f"session_{session:03d}.json"
-        with open(archive_file, "w") as f:
+        with open(archive_file, "w", encoding="utf-8") as f:
             json.dump(checkpoint, f, indent=2, ensure_ascii=False)
 
     def _create_initial(self) -> Dict[str, Any]:
